@@ -1,0 +1,19 @@
+{
+  "name": "agent-flow",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "dev": "npm run dev -w @agent-flow/server & npm run dev -w @agent-flow/web",
+    "dev:server": "npm run dev -w @agent-flow/server",
+    "dev:web": "npm run dev -w @agent-flow/web",
+    "build": "npm run build -w @agent-flow/core && npm run build -w @agent-flow/server && npm run build -w @agent-flow/web",
+    "typecheck": "tsc -b && npm run typecheck -w @agent-flow/web",
+    "test": "npm test -w @agent-flow/core -w @agent-flow/server",
+    "db:migrate": "npm run db:migrate -w @agent-flow/server",
+    "db:seed": "npm run db:seed -w @agent-flow/server"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,284 @@
+{
+  "tools": [
+    {
+      "name": "autotask_get_ticket",
+      "connector": "autotask",
+      "description": "Read an Autotask ticket, including title, description, status, queue, company and custom fields.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": { "ticket_id": { "type": "string", "description": "Ticket id or number, e.g. T20260930.0012" } },
+        "required": ["ticket_id"]
+      }
+    },
+    {
+      "name": "autotask_search_tickets",
+      "connector": "autotask",
+      "description": "Search Autotask tickets by title keyword, status and creation date.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title_contains": { "type": "string" },
+          "status_not": { "type": "string", "description": "Exclude tickets in this status, e.g. Complete" },
+          "created_after": { "type": "string", "description": "ISO date" },
+          "max_results": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "name": "autotask_create_ticket",
+      "connector": "autotask",
+      "description": "Create an Autotask ticket for a company.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "company_id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "issue_type": { "type": "string" },
+          "sub_issue_type": { "type": "string" },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "critical"] }
+        },
+        "required": ["company_id", "title"]
+      }
+    },
+    {
+      "name": "autotask_update_ticket",
+      "connector": "autotask",
+      "description": "Update fields of an Autotask ticket, such as queue, status or assigned resource.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": { "type": "string" },
+          "queue_id": { "type": "string" },
+          "status": { "type": "string" },
+          "assigned_resource_id": { "type": "string" }
+        },
+        "required": ["ticket_id"]
+      }
+    },
+    {
+      "name": "autotask_list_queues",
+      "connector": "autotask",
+      "description": "List the ticket queues configured in Autotask.",
+      "writes": false,
+      "inputSchema": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "autotask_create_ticket_note",
+      "connector": "autotask",
+      "description": "Add a note to an Autotask ticket.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": { "type": "string" },
+          "title": { "type": "string" },
+          "text": { "type": "string" },
+          "internal": { "type": "boolean", "description": "Internal notes are hidden from the customer" }
+        },
+        "required": ["ticket_id", "text"]
+      }
+    },
+    {
+      "name": "autotask_create_contact",
+      "connector": "autotask",
+      "description": "Create a contact under an Autotask company.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "company_id": { "type": "string" },
+          "first_name": { "type": "string" },
+          "last_name": { "type": "string" },
+          "email": { "type": "string" },
+          "mobile_phone": { "type": "string" },
+          "title": { "type": "string" }
+        },
+        "required": ["company_id", "first_name", "last_name", "email"]
+      }
+    },
+    {
+      "name": "graph_list_users",
+      "connector": "microsoft-graph",
+      "description": "List Microsoft 365 users. Use without a filter to learn the tenant's primary domain from userPrincipalName.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "display_name": { "type": "string" },
+          "max_results": { "type": "integer" }
+        }
+      }
+    },
+    {
+      "name": "graph_check_user_exists",
+      "connector": "microsoft-graph",
+      "description": "Check whether a user with the given user principal name exists.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": { "upn": { "type": "string", "description": "User principal name, e.g. jane.doe@contoso.com" } },
+        "required": ["upn"]
+      }
+    },
+    {
+      "name": "graph_get_user",
+      "connector": "microsoft-graph",
+      "description": "Read a Microsoft 365 user by id, UPN or email.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": { "user": { "type": "string", "description": "User id, UPN or email" } },
+        "required": ["user"]
+      }
+    },
+    {
+      "name": "graph_create_user",
+      "connector": "microsoft-graph",
+      "description": "Create a Microsoft 365 user with a temporary password.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "upn": { "type": "string" },
+          "display_name": { "type": "string" },
+          "given_name": { "type": "string" },
+          "surname": { "type": "string" },
+          "job_title": { "type": "string" },
+          "department": { "type": "string" },
+          "office_location": { "type": "string" },
+          "mobile_phone": { "type": "string" },
+          "password_length": { "type": "integer" },
+          "force_change_password": { "type": "boolean" }
+        },
+        "required": ["upn", "display_name"]
+      }
+    },
+    {
+      "name": "graph_update_user",
+      "connector": "microsoft-graph",
+      "description": "Update properties of a Microsoft 365 user.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user": { "type": "string" },
+          "properties": { "type": "object", "description": "Graph user properties to set" }
+        },
+        "required": ["user", "properties"]
+      }
+    },
+    {
+      "name": "graph_assign_manager",
+      "connector": "microsoft-graph",
+      "description": "Set the manager of a Microsoft 365 user.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": { "user": { "type": "string" }, "manager": { "type": "string" } },
+        "required": ["user", "manager"]
+      }
+    },
+    {
+      "name": "graph_reset_password",
+      "connector": "microsoft-graph",
+      "description": "Reset a user's password to a new temporary password.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user": { "type": "string" },
+          "password_length": { "type": "integer" },
+          "force_change_password": { "type": "boolean" }
+        },
+        "required": ["user"]
+      }
+    },
+    {
+      "name": "graph_check_license_stock",
+      "connector": "microsoft-graph",
+      "description": "List subscribed license SKUs with total, consumed and available units.",
+      "writes": false,
+      "inputSchema": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "graph_assign_license",
+      "connector": "microsoft-graph",
+      "description": "Assign a license SKU to a user.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user": { "type": "string" },
+          "sku_part_number": { "type": "string", "description": "e.g. SPB, O365_BUSINESS_PREMIUM" }
+        },
+        "required": ["user", "sku_part_number"]
+      }
+    },
+    {
+      "name": "graph_assign_groups",
+      "connector": "microsoft-graph",
+      "description": "Add a user to one or more groups.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user": { "type": "string" },
+          "groups": { "type": "array", "items": { "type": "string" }, "description": "Group ids or display names" }
+        },
+        "required": ["user", "groups"]
+      }
+    },
+    {
+      "name": "graph_search_sites",
+      "connector": "microsoft-graph",
+      "description": "Search SharePoint sites by keyword.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": { "query": { "type": "string" } },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "graph_list_drive_items",
+      "connector": "microsoft-graph",
+      "description": "List files in a SharePoint site's document library.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": { "site_id": { "type": "string" }, "folder_path": { "type": "string" } },
+        "required": ["site_id"]
+      }
+    },
+    {
+      "name": "graph_read_file_text",
+      "connector": "microsoft-graph",
+      "description": "Read a document or spreadsheet from SharePoint as text.",
+      "writes": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": { "site_id": { "type": "string" }, "item_id": { "type": "string" } },
+        "required": ["site_id", "item_id"]
+      }
+    },
+    {
+      "name": "send_teams_message",
+      "connector": "mspbots",
+      "description": "Send a Microsoft Teams message to an MSPbots user by email.",
+      "writes": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "text": { "type": "string" }
+        },
+        "required": ["email", "text"]
+      }
+    }
+  ]
+}
