@@ -13,7 +13,7 @@ Every SOP lives in Agent Flow as a published flowchart. You do not need to know 
 2. The response is the current step:
    - `flow.description`: purpose and fixed parameters of the SOP (addresses, offices, SKU names). Read it once.
    - `node.instruction`: what to do at this step.
-   - `tool`: the only tool to call now, with its parameter schema. `tool.argsHint` says where each argument comes from.
+   - `tool`: the only tool to call now, with its parameter schema. `tool.resolvedArgs` holds values the server already looked up: use them exactly. `tool.argsHint` says where every other argument comes from.
    - `inputs` and `context`: the run inputs and the results of earlier steps, keyed by their `outputKey`.
    - `options`: the edges you may take next, each with a condition.
    - `guide`: a one-paragraph summary of what to do.

@@ -141,7 +141,10 @@ function ArgsEditor({ tool, value, onChange }: { tool: ToolDefinition; value: Re
 
   return (
     <div>
-      <div className="mb-1 text-xs font-medium text-slate-600">Where each argument comes from</div>
+      <div className="text-xs font-medium text-slate-600">Where each argument comes from</div>
+      <p className="mb-2 text-[11px] text-slate-400">
+        Use <code className="font-mono">{'{{input.name}}'}</code> for a run input or <code className="font-mono">{'{{result.field}}'}</code> for an earlier step's saved result; the runner fills these in. Anything else is guidance for the agent.
+      </p>
       {params.length === 0 && <p className="text-xs text-slate-400">This tool takes no arguments.</p>}
       <div className="space-y-2">
         {params.map(([name, schema]) => (
@@ -151,7 +154,7 @@ function ArgsEditor({ tool, value, onChange }: { tool: ToolDefinition; value: Re
               {required.has(name) && <span className="text-red-500">*</span>}
               {schema.type && <span className="text-slate-400">{String(schema.type)}</span>}
             </div>
-            <Input value={value[name] ?? ''} onChange={(e) => onChange({ ...value, [name]: e.target.value })} placeholder={schema.description ?? 'e.g. from run input or an earlier step'} className="h-8 text-xs" />
+            <Input value={value[name] ?? ''} onChange={(e) => onChange({ ...value, [name]: e.target.value })} placeholder={schema.description ?? 'e.g. {{input.ticket_id}}'} className="h-8 text-xs" />
           </div>
         ))}
       </div>

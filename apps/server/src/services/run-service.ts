@@ -1,7 +1,9 @@
 import {
   isFinished,
   outgoingEdges,
+  resolveRef,
   resolveTransition,
+  soleRef,
   type FlowNode,
   type GraphDoc,
   type Run,
@@ -29,7 +31,7 @@ export interface StepView {
   flow: { title: string; description: string };
   run: Pick<Run, 'id' | 'graphId' | 'version' | 'status' | 'currentNodeId'>;
   node: Pick<FlowNode, 'id' | 'type' | 'title' | 'instruction' | 'outputKey' | 'onError'> | null;
-  tool: (ToolDefinition & { argsHint: Record<string, string> }) | null;
+  tool: (ToolDefinition & { argsHint: Record<string, string>; resolvedArgs: Record<string, unknown> }) | null;
   options: StepOption[];
   inputs: Record<string, unknown>;
   context: Record<string, unknown>;
@@ -164,7 +166,7 @@ export class RunService {
       return { edgeId: e.id, condition: e.condition, isDefault: e.isDefault, target: { id: target.id, title: target.title, type: target.type } };
     });
     const definition = node.tool ? this.tools.get(node.tool.name) : undefined;
-    const tool = definition && node.tool ? { ...definition, argsHint: node.tool.argsHint } : null;
+    const tool = definition && node.tool ? { ...definition, argsHint: node.tool.argsHint, resolvedArgs: resolveArgs(node.tool.argsHint, run) } : null;
     const { id, type, title, instruction, outputKey, onError } = node;
 
     return { ...base, node: { id, type, title, instruction, outputKey, onError }, tool, options, guide: guideFor(node, tool, options) };
@@ -197,7 +199,7 @@ function guideFor(node: FlowNode, tool: StepView['tool'], options: StepOption[])
   if (node.type === 'tool') {
     lines.push(
       tool
-        ? `Call tool "${tool.name}". Derive each argument from argsHint, the run inputs and the context.`
+        ? `Call tool "${tool.name}". Use resolvedArgs exactly as given; derive any other argument from argsHint, the run inputs and the context.`
         : `Perform the step "${node.title}".`,
       'Call it exactly once.',
       `Then call run_submit with nodeId "${node.id}" and outcome {status: "succeeded", args, result}, {status: "failed", args, error} with the tool's error, or {status: "skipped", error} if you could not call it because data is missing (never guess).`,
@@ -219,6 +221,17 @@ function guideFor(node: FlowNode, tool: StepView['tool'], options: StepOption[])
     lines.push('There is only one way forward; edgeId may be omitted.');
   }
   return lines.join(' ');
+}
+
+/** Exact values for hints that are a single {{reference}} the run can already answer. */
+function resolveArgs(argsHint: Record<string, string>, run: Run): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+  for (const [key, hint] of Object.entries(argsHint)) {
+    const ref = soleRef(hint);
+    const value = ref && resolveRef(ref, run.inputs, run.context);
+    if (value !== undefined && value !== null) resolved[key] = value;
+  }
+  return resolved;
 }
 
 const isBlank = (value: unknown) => value === undefined || value === null || (typeof value === 'string' && !value.trim());

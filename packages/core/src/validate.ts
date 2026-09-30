@@ -1,4 +1,5 @@
 import type { FlowEdge, FlowNode, GraphDoc } from './model.js';
+import { INPUT_ROOT, parseRefs } from './refs.js';
 import type { ToolLookup } from './tools.js';
 
 export interface Issue {
@@ -79,6 +80,7 @@ export function validateGraph(doc: GraphDoc, lookupTool: ToolLookup): Issue[] {
       if (!reachable.has(node.id)) error('unreachable', `"${node.title}" cannot be reached from the start node`, { nodeId: node.id });
       else if (!canFinish.has(node.id)) error('no_path_to_end', `no path leads from "${node.title}" to an end node`, { nodeId: node.id });
     }
+    validateRefs(doc, start, reachable, predecessors, outputKeys, error, warn);
   }
 
   return issues;
@@ -115,6 +117,65 @@ function validateToolNode(
     else if (target === node.id) error('on_error_target', `"${node.title}" cannot jump to itself on error`, ref);
   }
 }
+
+/** Checks {{...}} references: the data must exist and be produced before the step that uses it. */
+function validateRefs(
+  doc: GraphDoc,
+  start: FlowNode,
+  reachable: Set<string>,
+  predecessors: (id: string) => string[],
+  producers: Map<string, string>,
+  error: (code: string, message: string, ref?: Pick<Issue, 'nodeId'>) => void,
+  warn: (code: string, message: string, ref?: Pick<Issue, 'nodeId'>) => void,
+) {
+  const inputNames = new Set((start.inputs ?? []).map((i) => i.name));
+  const titles = new Map(doc.nodes.map((n) => [n.id, n.title]));
+  const dominators = computeDominators(doc, start.id, reachable, predecessors);
+  if (producers.has(INPUT_ROOT)) error('output_key_reserved', `"${INPUT_ROOT}" is reserved for run inputs and cannot be an output key`, { nodeId: producers.get(INPUT_ROOT) });
+
+  for (const node of doc.nodes) {
+    const texts = [node.instruction, ...Object.values(node.tool?.argsHint ?? {})];
+    const seen = new Set<string>();
+    for (const ref of texts.flatMap(parseRefs)) {
+      if (seen.has(ref.raw)) continue;
+      seen.add(ref.raw);
+      const where = { nodeId: node.id };
+      if (ref.root === INPUT_ROOT) {
+        if (!ref.path[0]) error('ref_unknown_input', `${ref.raw} in "${node.title}" names no input`, where);
+        else if (!inputNames.has(ref.path[0])) error('ref_unknown_input', `${ref.raw} in "${node.title}": the start node has no input "${ref.path[0]}"`, where);
+        continue;
+      }
+      const producer = producers.get(ref.root);
+      if (!producer) error('ref_unknown', `${ref.raw} in "${node.title}": no step saves its result as "${ref.root}"`, where);
+      else if (producer === node.id) error('ref_self', `${ref.raw} in "${node.title}" refers to this step's own result`, where);
+      else if (!reachable.has(node.id)) continue;
+      else if (!ancestors(node.id, predecessors).has(producer)) error('ref_unavailable', `${ref.raw} in "${node.title}": "${titles.get(producer)}" never runs before this step`, where);
+      else if (!dominators.get(node.id)?.has(producer)) warn('ref_maybe_unavailable', `${ref.raw} in "${node.title}": "${titles.get(producer)}" does not run on every path to this step`, where);
+    }
+  }
+}
+
+/** For each reachable node, the nodes that every path from the start passes through. */
+function computeDominators(doc: GraphDoc, startId: string, reachable: Set<string>, predecessors: (id: string) => string[]) {
+  const ids = doc.nodes.map((n) => n.id).filter((id) => reachable.has(id));
+  const dom = new Map(ids.map((id) => [id, id === startId ? new Set([id]) : new Set(ids)]));
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const id of ids) {
+      if (id === startId) continue;
+      const preds = predecessors(id).filter((p) => reachable.has(p));
+      const next = new Set(preds.length ? [...dom.get(preds[0]!)!].filter((d) => preds.every((p) => dom.get(p)!.has(d))) : []);
+      next.add(id);
+      if (next.size !== dom.get(id)!.size) {
+        dom.set(id, next);
+        changed = true;
+      }
+    }
+  }
+  return dom;
+}
+
+const ancestors = (id: string, predecessors: (id: string) => string[]) => walk(predecessors(id), predecessors);
 
 function groupBy(edges: FlowEdge[], key: (e: FlowEdge) => string) {
   const map = new Map<string, FlowEdge[]>();

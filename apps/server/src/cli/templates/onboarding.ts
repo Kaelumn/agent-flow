@@ -31,7 +31,7 @@ export const onboardingTemplate = {
     {
       op: 'addNodes',
       nodes: [
-        tool('read_ticket', 'Read the onboarding ticket', 'autotask_get_ticket', { ticket_id: 'run input ticket_id' }, {
+        tool('read_ticket', 'Read the onboarding ticket', 'autotask_get_ticket', { ticket_id: '{{input.ticket_id}}' }, {
           outputKey: 'ticket',
           instruction:
             'Extract the HR form: first name, last name, start date, job title, department, office, license type, hiring manager email, hardware needed, shipping address (required when hardware is needed), confidential access.',
@@ -46,14 +46,14 @@ export const onboardingTemplate = {
         }),
         teams('notify_exists', 'Report existing account', 'The account already exists; a human must handle this ticket.'),
         tool('create_hw_ticket', 'Create the hardware ticket', 'autotask_create_ticket', {
-          company_id: 'ticket.company_id',
+          company_id: '{{ticket.companyId}}',
           title: '{full name} – {start date} – Hardware',
           issue_type: 'Computer',
           sub_issue_type: 'Hardware',
         }, { outputKey: 'hw_ticket', onError: { strategy: 'continue' } }),
         tool('list_queues', 'Look up the Dispatch queue', 'autotask_list_queues', {}, { outputKey: 'queues', onError: { strategy: 'continue' } }),
         tool('move_to_dispatch', 'Move the hardware ticket to Dispatch', 'autotask_update_ticket', {
-          ticket_id: 'hw_ticket.id',
+          ticket_id: '{{hw_ticket.id}}',
           queue_id: 'id of the "Dispatch" queue in queues',
         }, { onError: { strategy: 'continue' } }),
         teams('notify_shipping', 'Send the shipping address', 'Shipping address for the hardware; mention if the Dispatch queue is missing.'),
@@ -64,7 +64,7 @@ export const onboardingTemplate = {
         }),
         teams('notify_procurement', 'Request license procurement', 'No available units of the required SKU; procure one.'),
         tool('create_user', 'Create the M365 account', 'graph_create_user', {
-          upn: 'the UPN checked in check_user',
+          upn: '{{user_exists.upn}}',
           display_name: '{first name} {last name}',
           given_name: 'form first name',
           surname: 'form last name',
@@ -74,26 +74,26 @@ export const onboardingTemplate = {
           password_length: '16',
           force_change_password: 'true',
         }, { outputKey: 'new_user', onError: { strategy: 'goto', targetNodeId: 'notify_failure' } }),
-        tool('assign_manager', 'Assign the hiring manager', 'graph_assign_manager', { user: 'new_user.id', manager: 'form hiring manager email' }, {
+        tool('assign_manager', 'Assign the hiring manager', 'graph_assign_manager', { user: '{{new_user.id}}', manager: 'form hiring manager email' }, {
           onError: { strategy: 'continue' },
         }),
         tool('assign_groups', 'Add groups', 'graph_assign_groups', {
-          user: 'new_user.id',
+          user: '{{new_user.id}}',
           groups: 'default groups of the office, exactly as listed in the flow description, plus "Confidential" when the form asks for it',
         }, { onError: { strategy: 'continue' } }),
-        tool('assign_license', 'Assign the license', 'graph_assign_license', { user: 'new_user.id', sku_part_number: 'SKU chosen in license_stock' }, {
+        tool('assign_license', 'Assign the license', 'graph_assign_license', { user: '{{new_user.id}}', sku_part_number: 'SKU chosen in license_stock' }, {
           onError: { strategy: 'continue' },
         }),
         tool('create_contact', 'Create the Autotask contact', 'autotask_create_contact', {
-          company_id: 'ticket.company_id',
+          company_id: '{{ticket.companyId}}',
           first_name: 'form first name',
           last_name: 'form last name',
-          email: 'new_user.upn',
+          email: '{{new_user.userPrincipalName}}',
           mobile_phone: 'form mobile phone',
         }, { onError: { strategy: 'continue' } }),
         teams('notify_manual', 'Send the human-only tasks', 'One message listing every task that applies, each on its own line: RingCentral extension, alarm PIN (Spokane only), WiFi password, street address, cloud apps / printer / HR system when requested, sign-in verification, and any step of this run that failed or was skipped.'),
         tool('summary_note', 'Write the summary note', 'autotask_create_ticket_note', {
-          ticket_id: 'run input ticket_id',
+          ticket_id: '{{input.ticket_id}}',
           text: '[Onboarding agent] done / pending / failed summary. Close the ticket after review.',
           internal: 'true',
         }, { onError: { strategy: 'continue' } }),

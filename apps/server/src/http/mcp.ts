@@ -16,6 +16,7 @@ Building a flow:
 1. tools_search to find real tool names and parameters. Never invent tool names.
 2. flow_create, then flow_add_nodes / flow_add_edges. Give nodes readable ids (e.g. "check_user") so you can connect them in the same turn.
 3. Every node type is start, tool or end. Branches are edges with a natural-language condition; mark at most one edge per node as isDefault.
+   In argsHint and instructions, refer to data with {{input.<name>}} for run inputs and {{<outputKey>.<field>}} for a result an earlier step saved with outputKey (e.g. {{new_user.id}}). The validator checks that such data exists and is produced before the step; the runner fills in the values. Give every step whose result is used later an outputKey. Keep free text only for values the agent must derive.
 4. After each change read the returned issues and fix errors. flow_publish once there are none.
 5. Check feedback_list: people leave questions and change requests on nodes in the canvas. Apply them, then feedback_answer.
 
@@ -98,7 +99,7 @@ function buildServer({ graphs, feedback, runs, tools }: Services, p: Principal, 
     return { flowId: g.id, title: g.title, description: g.description };
   });
 
-  tool('flow_add_nodes', 'Add one or more nodes. Tool nodes need tool.name from tools_search; argsHint tells the runner where each argument comes from.', {
+  tool('flow_add_nodes', 'Add one or more nodes. Tool nodes need tool.name from tools_search; argsHint tells the runner where each argument comes from, preferably as {{input.x}} or {{outputKey.field}}.', {
     flowId: FlowId,
     nodes: z.array(NodeInput).min(1),
     expectedRevision: ExpectedRevision,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOps, GraphDoc, OpError, resolveTransition, ToolOutcome, validateGraph, type ToolDefinition } from './index.js';
+import { applyOps, GraphDoc, OpError, resolveRef, resolveTransition, soleRef, ToolOutcome, validateGraph, type ToolDefinition } from './index.js';
 
 const tools: ToolDefinition[] = [
   {
@@ -122,5 +122,52 @@ describe('change summaries', () => {
   it('reports nothing for a no-op patch', () => {
     const { summary } = applyOps(build(), [{ op: 'updateEdge', edgeId: 'e2', patch: { condition: 'user exists' } }], genId);
     expect(summary).toEqual([]);
+  });
+});
+
+describe('references', () => {
+  const lookup2 = (name: string) =>
+    ({ name, connector: 't', description: '', writes: false, inputSchema: { type: 'object' as const, properties: { upn: { type: 'string' }, id: { type: 'string' } } } });
+  const doc = applyOps({ nodes: [], edges: [] }, [
+    {
+      op: 'addNodes',
+      nodes: [
+        { id: 'start', type: 'start', title: 'Start', inputs: [{ name: 'email', description: '', required: true }] },
+        { id: 'find', type: 'tool', title: 'Find', tool: { name: 'find', argsHint: { upn: '{{input.email}}' } }, outputKey: 'user' },
+        { id: 'extra', type: 'tool', title: 'Extra', tool: { name: 'extra', argsHint: { id: '{{user.id}}' } }, outputKey: 'extra' },
+        { id: 'use', type: 'tool', title: 'Use', tool: { name: 'use', argsHint: { id: '{{user.id}}', upn: '{{extra.upn}}' } } },
+        { id: 'done', type: 'end', title: 'Done' },
+      ],
+    },
+    {
+      op: 'addEdges',
+      edges: [
+        { source: 'start', target: 'find' },
+        { source: 'find', target: 'extra', condition: 'needs extra' },
+        { source: 'find', target: 'use', isDefault: true },
+        { source: 'extra', target: 'use' },
+        { source: 'use', target: 'done' },
+      ],
+    },
+  ], genId).doc;
+
+  it('accepts results produced on every path and warns about optional ones', () => {
+    const issues = validateGraph(doc, lookup2);
+    expect(issues.map((i) => [i.code, i.nodeId])).toEqual([['ref_maybe_unavailable', 'use']]);
+  });
+
+  it('rejects unknown inputs, unknown results and results produced later', () => {
+    const broken = applyOps(doc, [
+      { op: 'updateNode', nodeId: 'find', patch: { tool: { name: 'find', argsHint: { upn: '{{input.mail}}', id: '{{extra.id}}' } } } },
+      { op: 'updateNode', nodeId: 'use', patch: { instruction: 'Use {{nobody.id}}' } },
+    ], genId).doc;
+    const codes = validateGraph(broken, lookup2).map((i) => i.code);
+    expect(codes).toEqual(expect.arrayContaining(['ref_unknown_input', 'ref_unavailable', 'ref_unknown']));
+  });
+
+  it('resolves references against the run', () => {
+    expect(resolveRef(soleRef('{{user.groups[1]}}')!, {}, { user: { groups: ['a', 'b'] } })).toBe('b');
+    expect(resolveRef(soleRef(' {{input.email}} ')!, { email: 'x@y' }, {})).toBe('x@y');
+    expect(soleRef('{{user.id}} and more')).toBeNull();
   });
 });
