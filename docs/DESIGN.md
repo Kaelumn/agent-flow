@@ -22,7 +22,7 @@
 | Version | 发布时生成的快照。发布前必须通过校验，运行只针对版本 |
 | Run | 基于某个版本的一次执行，记录当前节点、上下文（各节点输出）和每一步 |
 | Feedback | 人在某个节点上留的问题、指令或问题报告，agent 读取、回复并确认 |
-| Tool Catalog | 可用工具及其参数 schema。当前从静态 JSON 读取，接口留给后续接入真实 MCP |
+| Tool Catalog | 可用工具及其参数 schema。从配置的 MCP 服务实时读取（服务名即系统名，`readOnlyHint` 决定是否写入），或从静态 JSON 读取（测试和离线开发用） |
 
 ## 3. 校验规则
 
@@ -79,5 +79,5 @@ packages/core 共享的领域模型、Op、校验器，前后端共用同一份
 ## 7. 范围
 
 - **本期**：建图（MCP 和画布）、校验、发布和版本、反馈闭环、修改历史、运行协议和轨迹高亮、静态工具目录、MySQL。
-- **后续**：真实认证和 RBAC、PostgreSQL 实测、多实例部署（Redis）、导出为 agent skill。
+- **后续**：真实认证和 RBAC、PostgreSQL 实测、多实例部署（Redis）、工具声明返回结构（MCP outputSchema，让校验器在建图时检查引用的字段名）。
 - **下期规划**：[运行生命周期](roadmap/run-lifecycle.md)（租约与接管、两阶段步骤与幂等、重试、人工审批与任务节点）。

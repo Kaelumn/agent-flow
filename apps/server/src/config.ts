@@ -33,6 +33,8 @@ const Env = z.object({
   /** Static tool catalog, for offline development and tests. */
   TOOL_CATALOG_PATH: z.string().default(`${packageRoot}data/tool-catalog.json`),
   WEB_DIST: z.string().default(`${packageRoot}../web/dist`),
+  /** Base URL of the web app, e.g. https://flows.example.com; lets MCP results link to the canvas. */
+  PUBLIC_WEB_URL: z.string().url().optional(),
 });
 
 export type Config = z.infer<typeof Env>;

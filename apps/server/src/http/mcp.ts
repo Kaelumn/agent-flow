@@ -27,10 +27,17 @@ The server rejects steps out of order and edges that do not leave the current no
 const FlowId = z.string().describe('Flow id');
 const ExpectedRevision = z.number().int().optional().describe('Fail instead of overwriting if the flow changed since this revision');
 
-export async function mcpRoutes(app: FastifyInstance, { services, authenticate }: { services: Services; authenticate: Authenticate }) {
+interface McpOptions {
+  services: Services;
+  authenticate: Authenticate;
+  publicWebUrl?: string;
+}
+
+export async function mcpRoutes(app: FastifyInstance, { services, authenticate, publicWebUrl }: McpOptions) {
   app.post('/', async (req, reply) => {
     const principal = authenticate(req, 'mcp');
-    const server = buildServer(services, principal, (err) => req.log.error(err));
+    const canvasUrl = (flowId: string) => (publicWebUrl ? `${publicWebUrl.replace(/\/$/, '')}/#/flows/${flowId}` : undefined);
+    const server = buildServer(services, principal, canvasUrl, (err) => req.log.error(err));
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     reply.hijack();
     reply.raw.on('close', () => {
@@ -46,7 +53,7 @@ export async function mcpRoutes(app: FastifyInstance, { services, authenticate }
   app.delete('/', async (_req, reply) => reply.code(405).send(notAllowed));
 }
 
-function buildServer({ graphs, feedback, runs, tools }: Services, p: Principal, logError: (err: unknown) => void) {
+function buildServer({ graphs, feedback, runs, tools }: Services, p: Principal, canvasUrl: (flowId: string) => string | undefined, logError: (err: unknown) => void) {
   const server = new McpServer({ name: 'agent-flow', version: '0.1.0' }, { instructions: INSTRUCTIONS });
 
   const tool = <S extends z.ZodRawShape>(name: string, description: string, inputSchema: S, handler: (args: z.infer<z.ZodObject<S>>) => Promise<unknown>) =>
@@ -82,12 +89,12 @@ function buildServer({ graphs, feedback, runs, tools }: Services, p: Principal, 
     description: z.string().optional().describe('What the SOP is for and when it applies'),
   }, async (args) => {
     const g = await graphs.create(p, args);
-    return { flowId: g.id, revision: g.revision, draft: compact(g.draft), issues: g.issues };
+    return { flowId: g.id, canvasUrl: canvasUrl(g.id), revision: g.revision, draft: compact(g.draft), issues: g.issues };
   });
 
   tool('flow_get', 'Read a flow: its draft nodes and edges, revision, latest published version and validation issues.', { flowId: FlowId }, async ({ flowId }) => {
     const g = await graphs.get(p, flowId);
-    return { flowId: g.id, title: g.title, description: g.description, revision: g.revision, latestVersion: g.latestVersion, draft: compact(g.draft), issues: g.issues };
+    return { flowId: g.id, canvasUrl: canvasUrl(g.id), title: g.title, description: g.description, revision: g.revision, latestVersion: g.latestVersion, draft: compact(g.draft), issues: g.issues };
   });
 
   tool('flow_update', 'Change the title or description of a flow.', {
@@ -142,7 +149,7 @@ function buildServer({ graphs, feedback, runs, tools }: Services, p: Principal, 
   tool('flow_publish', 'Publish the draft as a new immutable version. Runs always use a published version.', {
     flowId: FlowId,
     note: z.string().default('').describe('What changed in this version'),
-  }, async ({ flowId, note }) => graphs.publish(p, flowId, note));
+  }, async ({ flowId, note }) => ({ ...(await graphs.publish(p, flowId, note)), canvasUrl: canvasUrl(flowId) }));
 
   // ---- Feedback from people on the canvas
   tool('feedback_list', 'List feedback people left on a flow or its nodes. Defaults to open items.', {

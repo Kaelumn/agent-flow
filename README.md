@@ -113,7 +113,12 @@ npm start -w @agent-flow/mock-msp -- 4100-4109
 - `apps/mock-msp/catalog-servers.json` points the live catalog at port 4100: `TOOL_SERVERS_CONFIG=../mock-msp/catalog-servers.json`.
 - A shell MCP client: `MCP_CONFIG=servers.json npx tsx apps/mock-msp/src/cli.ts <server> list|<tool> '<json>'`.
 
-The generic agent skill that follows any published flow is in [examples/flow-runner-skill/SKILL.md](examples/flow-runner-skill/SKILL.md).
+## Agent skills
+
+Two generic skills for your agent, shared by every SOP (the SOP itself lives in the flow):
+
+- [skills/flow-designer/SKILL.md](skills/flow-designer/SKILL.md): interview the process owner and build, check and publish a flow.
+- [skills/flow-runner/SKILL.md](skills/flow-runner/SKILL.md): execute a published flow step by step.
 
 ## Switching to PostgreSQL
 

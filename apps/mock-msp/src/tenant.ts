@@ -70,6 +70,8 @@ function tickets(): Ticket[] {
     t('T20260930.0047', 'New Hire - Riley Failcase', form({ ...complete, 'First name': 'Riley', 'Last name': 'Failcase', 'Hardware needed': 'no', 'Shipping address': '' })),
     t('T20260930.0048', 'Onboarding - Ana Cruz', form({ ...complete, 'First name': 'Ana', 'Last name': 'Cruz', Office: 'tacoma', 'Hardware needed': 'no', 'Shipping address': '' })),
     t('T20260930.0049', 'WiFi connection error', 'Laptop cannot join the office WiFi since this morning.'),
+    t('T20260930.0050', 'Password reset - IT Admin', `Account: it.admin@${DOMAIN}
+Requested by: it.admin@${DOMAIN}`),
   ];
 }
 

@@ -1,11 +1,11 @@
-import type { GraphDoc, GraphOp, NodeInput } from '@agent-flow/core';
-import { AlertCircle, CircleStop, Eye, LayoutGrid, Plus } from 'lucide-react';
+import type { GraphDoc, GraphOp, NodeInput, Position } from '@agent-flow/core';
+import { AlertCircle, Eye } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { Badge, Button, cx, Empty, useConfirm, useToast } from '../components/ui';
 import { FlowCanvas, type CanvasInstance, type RunTrace, type Selection } from './canvas/FlowCanvas';
 import type { RunMark } from './canvas/nodes';
-import { autoLayout, NODE_HEIGHT, NODE_WIDTH, resolvePositions, spotBelow } from './layout';
+import { autoLayout, makeRoomBefore, NODE_HEIGHT, NODE_WIDTH, resolvePositions, spotBelow } from './layout';
 import { EdgePanel } from './panels/EdgePanel';
 import { FeedbackPanel } from './panels/FeedbackPanel';
 import { FlowPanel } from './panels/FlowPanel';
@@ -76,19 +76,50 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
     return [{ op: 'moveNodes', positions: Object.fromEntries(unplaced.map((n) => [n.id, shown[n.id]!])) }, ...ops];
   };
 
+  /** Applies ops that create node `id`, then selects and shows it. */
+  const createStep = async (id: string, ops: GraphOp[]) => {
+    if (!(await edit(placed(ops)))) return;
+    setSelection({ kind: 'node', id });
+    setTab('inspect');
+    requestAnimationFrame(() => focusNode(rf, id));
+  };
+
+  const newId = () => {
+    let id: string;
+    do id = `n_${Math.random().toString(36).slice(2, 8)}`;
+    while (graph.draft.nodes.some((n) => n.id === id));
+    return id;
+  };
+
   /** New nodes go under the selected node, or under the whole flow. */
-  const addNode = async (type: 'tool' | 'end') => {
+  const addNode = (type: 'tool' | 'end') => {
     const shown = resolvePositions(graph.draft);
-    const anchor = selectedNode ? shown[selectedNode.id] : undefined;
-    const position = spotBelow(Object.values(shown), anchor);
-    const node: NodeInput = type === 'tool' ? { type, title: 'New step', position } : { type, title: 'End', outcome: 'completed', position };
-    const result = await edit(placed([{ op: 'addNodes', nodes: [node] }]));
-    const id = result?.createdNodeIds[0];
-    if (id) {
-      setSelection({ kind: 'node', id });
-      setTab('inspect');
-      requestAnimationFrame(() => focusNode(rf, id));
-    }
+    const position = spotBelow(Object.values(shown), selectedNode ? shown[selectedNode.id] : undefined);
+    const id = newId();
+    const node: NodeInput = type === 'tool' ? { id, type, title: 'New step', position } : { id, type, title: 'End', outcome: 'completed', position };
+    return createStep(id, [{ op: 'addNodes', nodes: [node] }]);
+  };
+
+  /** Splits an edge with a new step; the edge's condition stays on the first half. */
+  const insertOnEdge = (edgeId: string) => {
+    const edge = graph.draft.edges.find((e) => e.id === edgeId);
+    if (!edge) return;
+    const { spot, moved } = makeRoomBefore(graph.draft, resolvePositions(graph.draft), edge.target);
+    const id = newId();
+    return createStep(id, [
+      { op: 'moveNodes', positions: moved },
+      { op: 'addNodes', nodes: [{ id, type: 'tool', title: 'New step', position: spot }] },
+      { op: 'removeEdge', edgeId },
+      { op: 'addEdges', edges: [{ source: edge.source, target: id, condition: edge.condition, isDefault: edge.isDefault }, { source: id, target: edge.target }] },
+    ]);
+  };
+
+  const connectToNew = (source: string, position: Position) => {
+    const id = newId();
+    return createStep(id, [
+      { op: 'addNodes', nodes: [{ id, type: 'tool', title: 'New step', position }] },
+      { op: 'addEdges', edges: [{ source, target: id }] },
+    ]);
   };
 
   const remove = async (items: NonNullable<Selection>[]) => {
@@ -122,9 +153,6 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
             {errorCount > 0 && (
               <Button size="sm" variant="ghost" className="text-red-600" onClick={() => setTab('issues')}><AlertCircle size={14} />{errorCount}<span className="hidden xl:inline"> error(s)</span></Button>
             )}
-            <Button size="sm" onClick={() => addNode('tool')} disabled={viewingRun} title="Add a step"><Plus size={14} /><span className="hidden xl:inline">Step</span></Button>
-            <Button size="sm" onClick={() => addNode('end')} disabled={viewingRun} title="Add an end"><CircleStop size={14} /><span className="hidden xl:inline">End</span></Button>
-            <Button size="sm" onClick={layout} disabled={viewingRun} title="Tidy up the layout"><LayoutGrid size={14} /><span className="hidden xl:inline">Tidy up</span></Button>
           </div>
         </header>
 
@@ -149,8 +177,13 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
             onSelect={select}
             onReady={setRf}
             onConnect={(source, target) => void edit([{ op: 'addEdges', edges: [{ source, target }] }])}
+            onConnectToNew={(source, position) => void connectToNew(source, position)}
+            onInsertOnEdge={(edgeId) => void insertOnEdge(edgeId)}
             onMove={(positions) => void edit(placed([{ op: 'moveNodes', positions }]))}
             onDelete={remove}
+            onAddStep={() => void addNode('tool')}
+            onAddEnd={() => void addNode('end')}
+            onTidy={() => void layout()}
           />
         </div>
       </div>
@@ -187,6 +220,7 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
                 edge={selectedEdge}
                 doc={doc}
                 onSave={(patch) => edit([{ op: 'updateEdge', edgeId: selectedEdge.id, patch }])}
+                onInsert={() => void insertOnEdge(selectedEdge.id)}
                 onDelete={() => remove([{ kind: 'edge', id: selectedEdge.id }])}
               />
             ) : (

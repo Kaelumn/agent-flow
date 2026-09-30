@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOps, GraphDoc, OpError, resolveRef, resolveTransition, soleRef, ToolOutcome, validateGraph, type ToolDefinition } from './index.js';
+import { applyOps, GraphDoc, interpolate, OpError, resolveRef, resolveTransition, soleRef, ToolOutcome, validateGraph, type ToolDefinition } from './index.js';
 
 const tools: ToolDefinition[] = [
   {
@@ -163,6 +163,16 @@ describe('references', () => {
     ], genId).doc;
     const codes = validateGraph(broken, lookup2).map((i) => i.code);
     expect(codes).toEqual(expect.arrayContaining(['ref_unknown_input', 'ref_unavailable', 'ref_unknown']));
+  });
+
+  it('fills references inside text and explains the ones it cannot', () => {
+    const context = { reset: { id: 'u-1', temporaryPassword: 'abc' } };
+    const { text, unresolved } = interpolate('Password {{reset.password}} for {{input.email}} ({{reset.id}}), see {{later.x}}', { email: 'x@y' }, context);
+    expect(text).toBe('Password {{reset.password}} for x@y (u-1), see {{later.x}}');
+    expect(unresolved).toEqual([
+      { ref: '{{reset.password}}', reason: '"reset" has no field "password"; it has: id, temporaryPassword' },
+      { ref: '{{later.x}}', reason: 'no result "later" yet: the step that saves it has not run or did not succeed' },
+    ]);
   });
 
   it('resolves references against the run', () => {

@@ -1,48 +1,91 @@
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type Edge, type EdgeProps } from '@xyflow/react';
+import { Plus } from 'lucide-react';
 import { cx } from '../../components/ui';
 
+export type EdgeKind = 'plain' | 'branch' | 'fallback' | 'error';
+export type EdgeTone = 'normal' | 'selected' | 'invalid' | 'trace';
+
 export interface FlowEdgeData extends Record<string, unknown> {
+  kind: EdgeKind;
+  tone: EdgeTone;
   label?: string;
-  /** The default branch without its own condition. */
-  fallback: boolean;
-  tone: 'normal' | 'selected' | 'error' | 'trace';
+  /** Present when a step can be inserted on this edge. */
+  onInsert?: () => void;
 }
 
-export type CanvasEdge = Edge<FlowEdgeData, 'condition'>;
+export type CanvasEdge = Edge<FlowEdgeData, 'flow'>;
 
-export const EDGE_COLORS: Record<FlowEdgeData['tone'], string> = {
-  normal: '#94a3b8',
-  selected: '#4f46e5',
-  error: '#dc2626',
-  trace: '#059669',
+const STROKE: Record<EdgeTone, string> = { normal: '#94a3b8', selected: '#4f46e5', invalid: '#e11d48', trace: '#059669' };
+const ERROR_STROKE = '#f43f5e';
+
+export const edgeColor = (data: FlowEdgeData) => (data.kind === 'error' && data.tone === 'normal' ? ERROR_STROKE : STROKE[data.tone]);
+
+const LABEL_STYLE: Record<EdgeKind, string> = {
+  plain: '',
+  branch: 'border-slate-200 bg-white text-slate-700',
+  fallback: 'border-slate-200 bg-slate-50 text-slate-500 italic',
+  error: 'border-rose-200 bg-rose-50 text-rose-600',
 };
 
 /**
- * Smooth-step edge whose label sits just above the target node.
- * Branches from one node share their first segment, so midpoint labels would collide.
+ * Smooth-step edge. The label sits where the edge turns towards its target: branches from one node fan out
+ * horizontally there and edges from different ranks turn at different heights, so labels rarely collide.
+ * The insert button sits on the last stretch before the target of a selected edge.
  */
-function ConditionEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, data }: EdgeProps<CanvasEdge>) {
-  const [path] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 8 });
-  const tone = data?.tone ?? 'normal';
+function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, data, selected }: EdgeProps<CanvasEdge>) {
+  const [path, , turnY] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 14, offset: 24 });
+  const insertY = (turnY + targetY) / 2;
+  if (!data) return null;
+  const color = edgeColor(data);
+  const emphasised = data.tone !== 'normal';
+  const dashed = data.kind === 'fallback' || data.kind === 'error' || data.tone === 'trace';
+
   return (
     <>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={{ stroke: EDGE_COLORS[tone], strokeWidth: tone === 'normal' ? 1.5 : 2.5 }} />
-      {data?.label && (
-        <EdgeLabelRenderer>
+      <BaseEdge
+        id={id}
+        path={path}
+        markerEnd={markerEnd}
+        interactionWidth={24}
+        style={{
+          stroke: color,
+          strokeWidth: emphasised ? 2.25 : 1.5,
+          strokeDasharray: dashed ? '6 5' : undefined,
+          animation: data.tone === 'trace' ? 'af-dash 0.8s linear infinite' : undefined,
+        }}
+      />
+      <EdgeLabelRenderer>
+        {data.label && (
           <div
-            style={{ transform: `translate(-50%, -100%) translate(${targetX}px, ${targetY - 14}px)` }}
+            title={data.label}
+            style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${turnY}px)` }}
             className={cx(
-              'nodrag nopan pointer-events-auto absolute max-w-56 cursor-pointer rounded border bg-white px-1.5 py-0.5 text-center text-[11px] leading-tight shadow-sm',
-              tone === 'selected' ? 'border-indigo-400 text-indigo-700' : tone === 'error' ? 'border-red-300 text-red-700' : 'border-slate-200 text-slate-600',
-              data.fallback && 'italic',
+              'nodrag nopan pointer-events-auto absolute max-w-[220px] cursor-pointer truncate rounded-full border px-2.5 py-0.5 text-[11px] leading-5 font-medium shadow-sm',
+              LABEL_STYLE[data.kind],
+              data.tone === 'selected' && 'border-indigo-300 text-indigo-700 ring-2 ring-indigo-500/15',
+              data.tone === 'invalid' && 'border-rose-300 text-rose-700',
             )}
           >
             {data.label}
           </div>
-        </EdgeLabelRenderer>
-      )}
+        )}
+        {selected && data.onInsert && (
+          <button
+            type="button"
+            title="Insert a step here"
+            onClick={(e) => {
+              e.stopPropagation();
+              data.onInsert?.();
+            }}
+            style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${insertY}px)` }}
+            className="nodrag nopan pointer-events-auto absolute grid size-6 place-items-center rounded-full bg-indigo-600 text-white shadow-md ring-4 ring-white transition-transform hover:scale-110"
+          >
+            <Plus size={14} strokeWidth={2.5} />
+          </button>
+        )}
+      </EdgeLabelRenderer>
     </>
   );
 }
 
-export const edgeTypes = { condition: ConditionEdge };
+export const edgeTypes = { flow: FlowEdge };

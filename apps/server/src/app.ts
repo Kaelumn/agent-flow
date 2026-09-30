@@ -11,7 +11,7 @@ import { mcpRoutes } from './http/mcp.js';
 import { restRoutes } from './http/rest.js';
 
 export interface AppDeps {
-  config: Pick<Config, 'LOG_LEVEL' | 'WEB_DIST'>;
+  config: Pick<Config, 'LOG_LEVEL' | 'WEB_DIST' | 'PUBLIC_WEB_URL'>;
   db: Database;
   services: Services;
   authenticate: Authenticate;
@@ -35,7 +35,7 @@ export async function buildApp({ config, db, services, authenticate }: AppDeps) 
   });
 
   await app.register(restRoutes, { prefix: '/api', services, authenticate });
-  await app.register(mcpRoutes, { prefix: '/mcp', services, authenticate });
+  await app.register(mcpRoutes, { prefix: '/mcp', services, authenticate, publicWebUrl: config.PUBLIC_WEB_URL });
 
   if (existsSync(config.WEB_DIST)) {
     await app.register(fastifyStatic, { root: config.WEB_DIST, wildcard: false });

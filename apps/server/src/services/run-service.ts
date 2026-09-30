@@ -1,9 +1,11 @@
 import {
+  interpolate,
   isFinished,
   outgoingEdges,
   resolveRef,
   resolveTransition,
   soleRef,
+  type Unresolved,
   type FlowNode,
   type GraphDoc,
   type Run,
@@ -31,7 +33,10 @@ export interface StepView {
   flow: { title: string; description: string };
   run: Pick<Run, 'id' | 'graphId' | 'version' | 'status' | 'currentNodeId'>;
   node: Pick<FlowNode, 'id' | 'type' | 'title' | 'instruction' | 'outputKey' | 'onError'> | null;
+  /** argsHint with every {{reference}} replaced by its value; resolvedArgs holds hints that are exactly one reference. */
   tool: (ToolDefinition & { argsHint: Record<string, string>; resolvedArgs: Record<string, unknown> }) | null;
+  /** References in the instruction or argsHint that the run cannot fill, with the reason. */
+  unresolvedRefs: Unresolved[];
   options: StepOption[];
   inputs: Record<string, unknown>;
   context: Record<string, unknown>;
@@ -158,7 +163,7 @@ export class RunService {
     const base = { flow: { title: graph.title, description: graph.description }, run: summary, inputs: run.inputs, context: run.context };
 
     if (isFinished(run.status) || !node) {
-      return { ...base, node: null, tool: null, options: [], guide: `The run has ended with status "${run.status}". Nothing more to do.` };
+      return { ...base, node: null, tool: null, options: [], unresolvedRefs: [], guide: `The run has ended with status "${run.status}". Nothing more to do.` };
     }
 
     const options = outgoingEdges(doc, node.id).map((e) => {
@@ -166,10 +171,25 @@ export class RunService {
       return { edgeId: e.id, condition: e.condition, isDefault: e.isDefault, target: { id: target.id, title: target.title, type: target.type } };
     });
     const definition = node.tool ? this.tools.get(node.tool.name) : undefined;
-    const tool = definition && node.tool ? { ...definition, argsHint: node.tool.argsHint, resolvedArgs: resolveArgs(node.tool.argsHint, run) } : null;
-    const { id, type, title, instruction, outputKey, onError } = node;
+    const unresolved: Unresolved[] = [];
+    const fill = (text: string) => {
+      const result = interpolate(text, run.inputs, run.context);
+      unresolved.push(...result.unresolved.filter((u) => !unresolved.some((x) => x.ref === u.ref)));
+      return result.text;
+    };
+    const instruction = fill(node.instruction);
+    const argsHint = Object.fromEntries(Object.entries(node.tool?.argsHint ?? {}).map(([k, v]) => [k, fill(v)]));
+    const tool = definition && node.tool ? { ...definition, argsHint, resolvedArgs: resolveArgs(node.tool.argsHint, run) } : null;
+    const { id, type, title, outputKey, onError } = node;
 
-    return { ...base, node: { id, type, title, instruction, outputKey, onError }, tool, options, guide: guideFor(node, tool, options) };
+    return {
+      ...base,
+      node: { id, type, title, instruction, outputKey, onError },
+      tool,
+      options,
+      unresolvedRefs: unresolved,
+      guide: guideFor(node, tool, options, unresolved),
+    };
   }
 
   private async versionDoc(p: Principal, graphId: string, version: number): Promise<GraphDoc> {
@@ -194,8 +214,14 @@ export class RunService {
   }
 }
 
-function guideFor(node: FlowNode, tool: StepView['tool'], options: StepOption[]): string {
+function guideFor(node: FlowNode, tool: StepView['tool'], options: StepOption[], unresolved: Unresolved[]): string {
   const lines: string[] = [];
+  if (unresolved.length) {
+    lines.push(
+      `Some references could not be filled (see unresolvedRefs): ${unresolved.map((u) => `${u.ref}: ${u.reason}`).join('; ')}.`,
+      'Never pass placeholder text on. Use the right value from the context if it is unambiguous; otherwise report the step as skipped with the reason.',
+    );
+  }
   if (node.type === 'tool') {
     lines.push(
       tool

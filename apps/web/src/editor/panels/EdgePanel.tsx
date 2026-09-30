@@ -1,5 +1,5 @@
 import type { EdgePatch, FlowEdge, GraphDoc } from '@agent-flow/core';
-import { ArrowDown, Trash2 } from 'lucide-react';
+import { ArrowDown, SquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, Field, Textarea } from '../../components/ui';
 
@@ -7,10 +7,11 @@ interface Props {
   edge: FlowEdge;
   doc: GraphDoc;
   onSave: (patch: EdgePatch) => Promise<unknown>;
+  onInsert: () => void;
   onDelete: () => void;
 }
 
-export function EdgePanel({ edge, doc, onSave, onDelete }: Props) {
+export function EdgePanel({ edge, doc, onSave, onInsert, onDelete }: Props) {
   const [condition, setCondition] = useState(edge.condition);
   const [isDefault, setIsDefault] = useState(edge.isDefault);
   const [saving, setSaving] = useState(false);
@@ -54,6 +55,7 @@ export function EdgePanel({ edge, doc, onSave, onDelete }: Props) {
       </div>
       <div className="flex items-center gap-2 border-t border-slate-200 p-3">
         <Button variant="primary" onClick={save} disabled={!dirty || saving}>{saving ? 'Saving…' : 'Save'}</Button>
+        <Button onClick={onInsert} title="Insert a step on this connection"><SquarePlus size={14} />Insert step</Button>
         <Button variant="danger" className="ml-auto" onClick={onDelete}><Trash2 size={14} />Delete</Button>
       </div>
     </div>

@@ -1,0 +1,67 @@
+---
+name: flow-designer
+description: Design or change an SOP flow in Agent Flow by interviewing the person who owns the process. Use when someone wants to turn a process, an SOP document or an existing skill into a flow, or wants to change a published flow. Produces a validated flow that the flow-runner skill can execute.
+---
+
+# Flow designer
+
+You turn a process that lives in someone's head (or in a document) into a flow in Agent Flow. A flow is only as reliable as it is precise: every step the runner must not skip, every rule it must not guess, and every value it must not invent has to be written into the flow.
+
+Work in five phases. Do not start building before phase 2 is confirmed.
+
+## 1. Understand
+
+If the person gave you material (an SOP document, an old skill, a Mermaid chart), read it first and only ask about what it leaves open.
+
+Ask at most three questions per message, most important first. Cover, in this order:
+
+1. **Trigger and inputs**: what starts the process (ticket created, form, schedule), and which values the run starts with. Which requests should the flow ignore?
+2. **Goal**: what "done" means, and what must never happen (for example: never close the ticket).
+3. **Steps**: the normal path, one action at a time, and the system each action happens in.
+4. **Decisions**: every point where the path splits, and which data decides it.
+5. **Fixed parameters**: mappings and constants the runner cannot know (offices and their groups, license names, who gets notified). Ask for the actual values, not a description of them.
+6. **Failures**: for each action that changes something, what happens if it fails: stop, continue, or notify and stop.
+7. **People**: steps only a human can do, and who is told about them.
+
+While you listen, check the tool catalog with `tools_search` so you can say early which steps have no tool. When you are unsure what a tool returns, call a **read-only** tool once to see the shape of its result. Never call a tool that writes while designing.
+
+## 2. Confirm
+
+Before building, write the flow back in plain language and ask the person to confirm or correct it:
+
+- numbered steps, each with the tool it uses;
+- every branch with its condition;
+- what happens when each writing step fails;
+- the fixed parameters you will store;
+- steps that have no tool and how you will handle them;
+- your assumptions, marked as such.
+
+If nobody can answer (for example, converting documents in bulk), make the most conservative choice, write it down as an assumption in the flow description under "Open questions", and continue.
+
+## 3. Build
+
+Create the flow with `flow_create`, then add nodes and edges. Rules:
+
+- **One node, one tool call.** If a step needs several calls (one message per task, one call per group), either use a tool that takes a list, or combine the work into a single call (one message with one line per task).
+- **Readable node ids** (`check_user`, `notify_missing`), so edges and references are easy to follow.
+- **Instructions are per step**: put a rule in the node where it applies, not in a global list. Keep it short and concrete.
+- **Fixed parameters go in the flow description**, with their real values, in a compact form the runner can read (for example `spokane: groups All Staff, Spokane Staff`).
+- **Reference data instead of describing it**: `{{input.ticket_id}}` for run inputs, `{{<outputKey>.<field>}}` for an earlier step's result. Give every step whose result is used later an `outputKey`. Use free text only for values the runner must derive, and then say exactly how (for example `first.last@<domain from {{tenant_users}}>, lowercase`).
+- **Conditions** must be decidable from data available at that step, must not overlap, and at most one edge per node is the default. Add a first branch that ends the flow for requests it should ignore.
+- **Failure handling** is explicit on every writing step: `stop`, `continue`, or `goto` a node that notifies someone. Reading steps usually stop.
+- **End nodes** reflect business outcomes (`completed`, `stopped` for "nothing to do", `failed`) and have clear titles.
+- **Never invent a tool.** For a step without a tool, add a notification to the right person that tells them exactly what to do by hand, and list the gap in the flow description.
+- Titles and instructions are in the person's language only if the runner will understand it; otherwise English.
+
+## 4. Check (required before publishing)
+
+1. Fix every error the edits return. Read every warning and either fix it or be able to explain it.
+2. **Walk every branch** with a concrete example: the normal case, the other side of each decision, and one failure of each writing step. Write the walk down briefly (branch → nodes visited → end). At each step check that the runner has every value it needs and that the next edge is obvious from the data.
+3. **Confirm the fields you reference.** For every `{{result.field}}` whose tool output you have not actually seen, find out the real field name: look at a read-only call's result, or ask the person. A reference the validator accepts can still name a field the tool never returns. If you cannot confirm it, list it under "Open questions" and tell the person which step depends on it, especially when that step carries data that exists nowhere else (for example a temporary password).
+4. Show the person the result: a short summary, the branch walk, the `canvasUrl` (if present) so they can review it on the canvas, and the open questions.
+5. Publish with `flow_publish` and a note saying what the version contains, only after the person agrees. If you were told to work unattended, publish when the flow has no errors and every open question is recorded in the description.
+
+## 5. Iterate
+
+- People leave feedback on nodes in the canvas. Read it with `feedback_list`, make the change, and reply with `feedback_answer` saying what you changed. Resolve an item only when the change fully covers it.
+- To change an existing flow, read it with `flow_get` first and pass its `revision` as `expectedRevision` on your edits. Change only what was asked; never rebuild a flow from scratch. Publish a new version with a note describing the change.
