@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "autotask": { "url": "http://127.0.0.1:4100/mcp/autotask" },
+    "microsoft-graph": { "url": "http://127.0.0.1:4100/mcp/microsoft-graph" },
+    "mspbots": { "url": "http://127.0.0.1:4100/mcp/mspbots" }
+  }
+}

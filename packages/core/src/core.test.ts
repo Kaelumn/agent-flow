@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOps, GraphDoc, OpError, resolveTransition, validateGraph, type ToolDefinition } from './index.js';
+import { applyOps, GraphDoc, OpError, resolveTransition, ToolOutcome, validateGraph, type ToolDefinition } from './index.js';
 
 const tools: ToolDefinition[] = [
   {
@@ -97,6 +97,12 @@ describe('resolveTransition', () => {
   it('finishes with the end node outcome', () => {
     const t = resolveTransition(doc, 'check', { nodeId: 'check', outcome: ok, edgeId: 'e2' });
     expect(t.finalStatus).toBe('stopped');
+  });
+
+  it('treats a skipped tool like a failed one, and requires a reason', () => {
+    const t = resolveTransition(doc, 'check', { nodeId: 'check', outcome: { status: 'skipped', error: 'no UPN in the form' } });
+    expect([t.stepStatus, t.next?.id]).toEqual(['skipped', 'failed']);
+    expect(ToolOutcome.safeParse({ status: 'skipped' }).success).toBe(false);
   });
 
   it('follows the on-error strategy', () => {

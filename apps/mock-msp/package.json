@@ -1,0 +1,19 @@
+{
+  "name": "@agent-flow/mock-msp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Stateful mock of the MSP tool servers (Microsoft Graph, Autotask, MSPbots Teams) for demos and agent tests",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "call": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0"
+  }
+}

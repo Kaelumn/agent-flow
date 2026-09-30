@@ -17,7 +17,9 @@ export const onboardingTemplate = {
   title: 'Focus ITS new-employee onboarding',
   description:
     'Provision a new hire from an Autotask onboarding ticket: M365 account, manager, groups, license, Autotask contact and hardware ticket. ' +
-    'Every human-only task is sent to notify_to = it-ops@focusits.example via Teams. Offices: spokane (ext 400, alarm access), renton_seattle (ext 500), tacoma (ext 100). ' +
+    'Every human-only task is sent to notify_to = it-ops@focusits.example via Teams. ' +
+    'Offices and their default groups: spokane (ext 400, alarm access; groups All Staff, Spokane Staff), renton_seattle (ext 500; groups All Staff, Renton Staff), tacoma (ext 100; groups All Staff, Tacoma Staff). ' +
+    'Add the Confidential group when the form asks for confidential access. ' +
     'Never close the original ticket.',
   ops: [
     {
@@ -77,7 +79,7 @@ export const onboardingTemplate = {
         }),
         tool('assign_groups', 'Add groups', 'graph_assign_groups', {
           user: 'new_user.id',
-          groups: 'office default groups, plus "Confidential" when the form asks for it',
+          groups: 'default groups of the office, exactly as listed in the flow description, plus "Confidential" when the form asks for it',
         }, { onError: { strategy: 'continue' } }),
         tool('assign_license', 'Assign the license', 'graph_assign_license', { user: 'new_user.id', sku_part_number: 'SKU chosen in license_stock' }, {
           onError: { strategy: 'continue' },
@@ -89,13 +91,14 @@ export const onboardingTemplate = {
           email: 'new_user.upn',
           mobile_phone: 'form mobile phone',
         }, { onError: { strategy: 'continue' } }),
-        teams('notify_manual', 'Send the human-only tasks', 'One message per task: RingCentral extension, alarm PIN (Spokane only), WiFi password, street address, cloud apps / printer / HR system when requested, sign-in verification.'),
+        teams('notify_manual', 'Send the human-only tasks', 'One message listing every task that applies, each on its own line: RingCentral extension, alarm PIN (Spokane only), WiFi password, street address, cloud apps / printer / HR system when requested, sign-in verification, and any step of this run that failed or was skipped.'),
         tool('summary_note', 'Write the summary note', 'autotask_create_ticket_note', {
           ticket_id: 'run input ticket_id',
           text: '[Onboarding agent] done / pending / failed summary. Close the ticket after review.',
           internal: 'true',
         }, { onError: { strategy: 'continue' } }),
         teams('notify_failure', 'Report the failed account creation', 'Account creation failed; include the error and the ticket number.'),
+        { id: 'end_not_onboarding', type: 'end', title: 'Skipped: not an onboarding ticket', outcome: 'stopped' },
         { id: 'end_missing', type: 'end', title: 'Stopped: form incomplete', outcome: 'stopped' },
         { id: 'end_exists', type: 'end', title: 'Stopped: account exists', outcome: 'stopped' },
         { id: 'end_failed', type: 'end', title: 'Failed: account not created', outcome: 'failed' },
@@ -106,7 +109,8 @@ export const onboardingTemplate = {
       op: 'addEdges',
       edges: [
         { source: 'start', target: 'read_ticket' },
-        { source: 'read_ticket', target: 'notify_missing', condition: 'a required field is missing or the office is not a known office' },
+        { source: 'read_ticket', target: 'end_not_onboarding', condition: 'the ticket is not a new-hire or onboarding request' },
+        { source: 'read_ticket', target: 'notify_missing', condition: 'it is an onboarding request, but a required field is missing or the office is not a known office' },
         { source: 'read_ticket', target: 'list_users', isDefault: true },
         { source: 'notify_missing', target: 'end_missing' },
         { source: 'list_users', target: 'check_user' },

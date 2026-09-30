@@ -20,6 +20,7 @@ const RUN_RING: Record<RunMark, string> = {
   current: 'ring-4 ring-indigo-500 ring-offset-2',
   succeeded: 'ring-2 ring-emerald-400',
   passed: 'ring-2 ring-emerald-300',
+  skipped: 'ring-4 ring-amber-400',
   failed: 'ring-4 ring-red-400',
 };
 

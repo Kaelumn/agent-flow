@@ -70,7 +70,7 @@ export function RunsPanel({ graphId, runSignal, selected, runDoc, onSelect }: Pr
               <div className="flex items-center gap-2">
                 <span className="w-5 text-right text-[11px] text-slate-400">{s.seq}</span>
                 <span className="flex-1 truncate text-sm text-slate-800">{title(s.nodeId)}</span>
-                <Badge tone={s.status === 'failed' ? 'red' : 'green'}>{s.status}</Badge>
+                <Badge tone={STEP_TONE[s.status]}>{s.status}</Badge>
               </div>
               {s.toolName && <div className="mt-1 ml-7 font-mono text-[11px] text-slate-500">{s.toolName}</div>}
               {s.error && <div className="mt-1 ml-7 text-xs text-red-600">{s.error}</div>}
@@ -104,6 +104,8 @@ export function RunsPanel({ graphId, runSignal, selected, runDoc, onSelect }: Pr
     </ul>
   );
 }
+
+const STEP_TONE: Record<RunStep['status'], 'green' | 'amber' | 'red'> = { succeeded: 'green', passed: 'green', skipped: 'amber', failed: 'red' };
 
 const Json = ({ label, value }: { label: string; value: unknown }) => (
   <details className="mt-1 text-xs">

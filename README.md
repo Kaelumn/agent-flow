@@ -95,7 +95,25 @@ A run loop for the agent's skill:
 
 ## Tool catalog
 
-Flows may only bind tools from the catalog. It is currently read from `apps/server/data/tool-catalog.json` (Microsoft Graph, Autotask and Teams mocks); point `TOOL_CATALOG_PATH` at another file, or implement `ToolCatalog` in `apps/server/src/services/tool-catalog.ts` to read from live MCP servers.
+Flows may only bind tools from the catalog.
+
+- **Live** (recommended): set `TOOL_SERVERS_CONFIG` to a JSON file in the usual `{ "mcpServers": { "<connector>": { "url", "headers" } } }` shape. The server lists the tools of each MCP server at startup and every 5 minutes; the server name becomes the connector, and a tool is marked as writing unless it declares `readOnlyHint: true`. A relative path is resolved from `apps/server`.
+- **Static**: without `TOOL_SERVERS_CONFIG`, tools come from `TOOL_CATALOG_PATH` (default `apps/server/data/tool-catalog.json`). Tests use this.
+
+## Mock MSP tools
+
+`apps/mock-msp` is a stateful fake of the customer systems (Microsoft Graph, Autotask, MSPbots Teams) with onboarding test tickets, for demos and agent tests. Each port is an independent tenant:
+
+```bash
+npm start -w @agent-flow/mock-msp -- 4100-4109
+```
+
+- MCP: `http://127.0.0.1:<port>/mcp/{autotask|microsoft-graph|mspbots}`
+- For verification only: `GET /log` (every tool call), `GET /state`, `POST /reset`.
+- `apps/mock-msp/catalog-servers.json` points the live catalog at port 4100: `TOOL_SERVERS_CONFIG=../mock-msp/catalog-servers.json`.
+- A shell MCP client: `MCP_CONFIG=servers.json npx tsx apps/mock-msp/src/cli.ts <server> list|<tool> '<json>'`.
+
+The generic agent skill that follows any published flow is in [examples/flow-runner-skill/SKILL.md](examples/flow-runner-skill/SKILL.md).
 
 ## Switching to PostgreSQL
 

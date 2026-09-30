@@ -20,7 +20,8 @@ export interface Run {
   endedAt: number | null;
 }
 
-export type StepStatus = 'succeeded' | 'failed' | 'passed';
+/** passed: a node without a tool. skipped: the agent could not call the tool (e.g. missing data) and said why. */
+export type StepStatus = 'succeeded' | 'failed' | 'skipped' | 'passed';
 
 export interface RunStep {
   id: string;
@@ -36,12 +37,15 @@ export interface RunStep {
   createdAt: number;
 }
 
-export const ToolOutcome = z.object({
-  status: z.enum(['succeeded', 'failed']),
-  args: z.record(z.string(), z.unknown()).optional(),
-  result: z.unknown().optional(),
-  error: z.string().optional(),
-});
+export const ToolOutcome = z
+  .object({
+    status: z.enum(['succeeded', 'failed', 'skipped']),
+    args: z.record(z.string(), z.unknown()).optional(),
+    result: z.unknown().optional(),
+    /** The tool's error, or why the tool was not called. */
+    error: z.string().optional(),
+  })
+  .refine((o) => o.status === 'succeeded' || !!o.error?.trim(), { message: 'a failed or skipped outcome needs an error explaining why', path: ['error'] });
 export type ToolOutcome = z.infer<typeof ToolOutcome>;
 
 export interface Transition {
@@ -70,7 +74,8 @@ export function resolveTransition(
   if (node.type === 'tool') {
     if (!submission.outcome) throw new OpError('invalid', `"${node.title}" is a tool step: report the tool outcome`);
     stepStatus = submission.outcome.status;
-    if (stepStatus === 'failed') {
+    // A step that could not run is handled like a failed one.
+    if (stepStatus !== 'succeeded') {
       const onError = node.onError ?? { strategy: 'stop' };
       if (onError.strategy === 'stop') return { node, edge: null, next: null, stepStatus, finalStatus: 'failed' };
       if (onError.strategy === 'goto') {

@@ -28,6 +28,9 @@ const Env = z.object({
   DATABASE_URL: z.string().url(),
   DB_POOL_SIZE: z.coerce.number().int().positive().default(10),
   AUTH_TOKENS: AuthTokens,
+  /** Live tool catalog: a JSON file in the { "mcpServers": { name: { url, headers } } } shape. Takes precedence over TOOL_CATALOG_PATH. */
+  TOOL_SERVERS_CONFIG: z.string().optional(),
+  /** Static tool catalog, for offline development and tests. */
   TOOL_CATALOG_PATH: z.string().default(`${packageRoot}data/tool-catalog.json`),
   WEB_DIST: z.string().default(`${packageRoot}../web/dist`),
 });

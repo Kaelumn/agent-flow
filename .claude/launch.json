@@ -1,7 +1,35 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "server", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:server"], "port": 3100 },
-    { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev:web"], "port": 5173 }
+    {
+      "name": "server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:server"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:web"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "mock-msp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "start",
+        "-w",
+        "@agent-flow/mock-msp",
+        "--",
+        "4100-4109"
+      ],
+      "port": 4100
+    }
   ]
 }

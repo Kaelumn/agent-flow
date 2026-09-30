@@ -25,6 +25,8 @@ export interface StepOption {
 
 /** Everything the agent needs to act on the current node, and nothing else. */
 export interface StepView {
+  /** Title and description carry the flow's fixed parameters (e.g. who to notify). */
+  flow: { title: string; description: string };
   run: Pick<Run, 'id' | 'graphId' | 'version' | 'status' | 'currentNodeId'>;
   node: Pick<FlowNode, 'id' | 'type' | 'title' | 'instruction' | 'outputKey' | 'onError'> | null;
   tool: (ToolDefinition & { argsHint: Record<string, string> }) | null;
@@ -81,12 +83,12 @@ export class RunService {
     this.changed(p, run);
 
     if (outgoingEdges(doc, start.id).length === 1) return this.transition(p, run, doc, { nodeId: start.id });
-    return this.view(run, doc);
+    return this.view(p, run, doc);
   }
 
   async current(p: Principal, runId: string): Promise<StepView> {
     const run = await this.require(p, runId);
-    return this.view(run, await this.versionDoc(p, run.graphId, run.version));
+    return this.view(p, run, await this.versionDoc(p, run.graphId, run.version));
   }
 
   async submit(p: Principal, runId: string, submission: Submission): Promise<StepView> {
@@ -144,13 +146,14 @@ export class RunService {
       });
     });
     this.changed(p, next);
-    return this.view(next, doc);
+    return this.view(p, next, doc);
   }
 
-  private view(run: Run, doc: GraphDoc): StepView {
+  private async view(p: Principal, run: Run, doc: GraphDoc): Promise<StepView> {
+    const graph = await this.graphs.require(p, run.graphId);
     const summary = { id: run.id, graphId: run.graphId, version: run.version, status: run.status, currentNodeId: run.currentNodeId };
     const node = doc.nodes.find((n) => n.id === run.currentNodeId);
-    const base = { run: summary, inputs: run.inputs, context: run.context };
+    const base = { flow: { title: graph.title, description: graph.description }, run: summary, inputs: run.inputs, context: run.context };
 
     if (isFinished(run.status) || !node) {
       return { ...base, node: null, tool: null, options: [], guide: `The run has ended with status "${run.status}". Nothing more to do.` };
@@ -196,7 +199,8 @@ function guideFor(node: FlowNode, tool: StepView['tool'], options: StepOption[])
       tool
         ? `Call tool "${tool.name}". Derive each argument from argsHint, the run inputs and the context.`
         : `Perform the step "${node.title}".`,
-      `Then call run_submit with nodeId "${node.id}" and outcome {status: "succeeded", args, result} or {status: "failed", args, error}.`,
+      'Call it exactly once.',
+      `Then call run_submit with nodeId "${node.id}" and outcome {status: "succeeded", args, result}, {status: "failed", args, error} with the tool's error, or {status: "skipped", error} if you could not call it because data is missing (never guess).`,
     );
     const strategy = node.onError?.strategy ?? 'stop';
     lines.push(

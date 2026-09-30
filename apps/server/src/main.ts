@@ -3,11 +3,11 @@ import { loadConfig } from './config.js';
 import { createServices } from './container.js';
 import { createDatabase } from './db/database.js';
 import { tokenAuthenticator } from './http/auth.js';
-import { StaticToolCatalog } from './services/tool-catalog.js';
+import { loadToolCatalog } from './services/tool-catalog.js';
 
 const config = loadConfig();
 const db = await createDatabase(config);
-const tools = await StaticToolCatalog.fromFile(config.TOOL_CATALOG_PATH);
+const tools = await loadToolCatalog(config);
 const app = await buildApp({ config, db, services: createServices(db, tools), authenticate: tokenAuthenticator(config.AUTH_TOKENS) });
 
 const shutdown = async (signal: string) => {
