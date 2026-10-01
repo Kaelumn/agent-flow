@@ -1,8 +1,9 @@
 import type { GraphDoc, GraphOp, NodeInput, Position } from '@agent-flow/core';
-import { AlertCircle, Eye } from 'lucide-react';
+import { AlertCircle, Eye, History, MessageSquare, PlayCircle, SlidersHorizontal } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
-import { Badge, Button, cx, Empty, useConfirm, useToast } from '../components/ui';
+import { Badge, Button, cx, Empty, Tooltip, useConfirm, useToast } from '../components/ui';
 import { FlowCanvas, type CanvasInstance, type RunTrace, type Selection } from './canvas/FlowCanvas';
 import type { RunMark } from './canvas/nodes';
 import { autoLayout, makeRoomBefore, NODE_HEIGHT, NODE_WIDTH, resolvePositions, spotBelow } from './layout';
@@ -12,7 +13,8 @@ import { FlowPanel } from './panels/FlowPanel';
 import { IssuesPanel } from './panels/IssuesPanel';
 import { NodePanel } from './panels/NodePanel';
 import { RUN_TONE, RunsPanel, type RunDetail } from './panels/RunsPanel';
-import { VersionsPanel } from './panels/VersionsPanel';
+import { HistoryPanel } from './panels/HistoryPanel';
+import { EditorHeader } from './EditorHeader';
 import { useFlow } from './useFlow';
 
 type Tab = 'inspect' | 'issues' | 'feedback' | 'versions' | 'runs';
@@ -134,34 +136,27 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
     requestAnimationFrame(() => rf?.fitView({ padding: 0.2, duration: 300 }));
   };
 
-  const tabs: { id: Tab; label: string; count?: number; tone?: 'red' | 'amber' }[] = [
-    { id: 'inspect', label: 'Inspect' },
-    { id: 'issues', label: 'Problems', count: graph.issues.length, tone: errorCount ? 'red' : 'amber' },
-    { id: 'feedback', label: 'Feedback', count: openFeedback, tone: 'amber' },
-    { id: 'versions', label: 'Publish' },
-    { id: 'runs', label: 'Runs' },
+  const tabs: { id: Tab; label: string; icon: ReactNode; count?: number; tone?: 'red' | 'amber' | 'blue' }[] = [
+    { id: 'inspect', label: 'Inspect', icon: <SlidersHorizontal size={14} /> },
+    { id: 'issues', label: 'Problems', icon: <AlertCircle size={14} />, count: graph.issues.length, tone: errorCount ? 'red' : 'amber' },
+    { id: 'feedback', label: 'Feedback', icon: <MessageSquare size={14} />, count: openFeedback, tone: 'blue' },
+    { id: 'versions', label: 'History', icon: <History size={14} /> },
+    { id: 'runs', label: 'Runs', icon: <PlayCircle size={14} /> },
   ];
 
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 xl:px-4">
-          <h1 className="min-w-0 truncate text-sm font-semibold text-slate-900" title={graph.title}>{graph.title}</h1>
-          <Badge className="shrink-0">rev {graph.revision}</Badge>
-          {graph.latestVersion ? <Badge tone="green" className="shrink-0">v{graph.latestVersion}</Badge> : <Badge tone="amber" className="shrink-0">not published</Badge>}
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            {errorCount > 0 && (
-              <Button size="sm" variant="ghost" className="text-red-600" onClick={() => setTab('issues')}><AlertCircle size={14} />{errorCount}<span className="hidden xl:inline"> error(s)</span></Button>
-            )}
-          </div>
-        </header>
+        <EditorHeader graph={graph} versionSignal={flow.signals.versions} onShowProblems={() => setTab('issues')} />
 
         {viewingRun && (
-          <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-4 py-2 text-xs text-sky-900">
-            <Eye size={14} />
-            Showing run <span className="font-mono">{runDetail.run.id}</span> on published v{runDetail.run.version}.
-            <Badge tone={RUN_TONE[runDetail.run.status]}>{runDetail.run.status}</Badge>
-            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setRunDetail(null)}>Back to draft</Button>
+          <div className="flex items-center gap-2.5 border-b border-indigo-100 bg-indigo-50/70 px-4 py-2 text-[12.5px] text-indigo-900">
+            <Eye size={14} className="text-indigo-500" />
+            <span>
+              Viewing run <span className="font-mono text-[11.5px]">{runDetail.run.id}</span> on published v{runDetail.run.version} · read-only
+            </span>
+            <Badge tone={RUN_TONE[runDetail.run.status]} dot>{runDetail.run.status}</Badge>
+            <Button size="sm" className="ml-auto" onClick={() => setRunDetail(null)}>Back to draft</Button>
           </div>
         )}
 
@@ -188,18 +183,27 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
         </div>
       </div>
 
-      <aside className="flex w-80 shrink-0 flex-col border-l border-slate-200 bg-white xl:w-96">
-        <nav className="flex h-14 shrink-0 items-end gap-1 border-b border-slate-200 px-2">
+      <aside className="flex w-[340px] shrink-0 flex-col border-l border-slate-200 bg-white xl:w-[400px]">
+        <nav className="flex h-14 shrink-0 items-end gap-0.5 overflow-hidden border-b border-slate-200 px-3">
           {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={cx('flex items-center gap-1 border-b-2 px-1.5 pb-2.5 text-xs xl:px-2 xl:text-[13px]', tab === t.id ? 'border-indigo-600 font-medium text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800')}
-            >
-              {t.label}
-              {!!t.count && <span className={cx('rounded-full px-1.5 text-[10px] font-semibold text-white', t.tone === 'red' ? 'bg-red-500' : 'bg-amber-500')}>{t.count}</span>}
-            </button>
+            <Tooltip key={t.id} content={t.label} side="bottom">
+              <button
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-label={t.label}
+                className={cx(
+                  'relative flex h-10 items-center gap-1.5 rounded-t-md px-2 text-[12.5px] font-medium transition-colors',
+                  tab === t.id ? 'text-slate-900 after:absolute after:inset-x-1 after:-bottom-px after:h-0.5 after:rounded-full after:bg-indigo-600' : 'text-slate-500 hover:text-slate-800',
+                )}
+              >
+                <span className={tab === t.id ? 'text-indigo-600' : 'text-slate-400'}>{t.icon}</span>
+                {/* Only the active tab spells out its name, so five tabs always fit. */}
+                {tab === t.id && <span>{t.label}</span>}
+                {!!t.count && (
+                  <span className={cx('min-w-4 rounded-full px-1 text-center text-[10px] leading-4 font-semibold tabular-nums', t.tone === 'red' ? 'bg-rose-100 text-rose-700' : t.tone === 'blue' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700')}>{t.count}</span>
+                )}
+              </button>
+            </Tooltip>
           ))}
         </nav>
 
@@ -212,6 +216,7 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
                 node={selectedNode}
                 doc={doc}
                 tools={flow.tools}
+                issues={graph.issues.filter((i) => i.nodeId === selectedNode.id)}
                 onSave={(patch) => edit([{ op: 'updateNode', nodeId: selectedNode.id, patch }])}
                 onDelete={() => remove([{ kind: 'node', id: selectedNode.id }])}
               />
@@ -230,7 +235,7 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
           {tab === 'feedback' && (
             <FeedbackPanel graphId={graph.id} doc={graph.draft} items={flow.feedback} selectedNodeId={selectedNode?.id ?? null} onFocusNode={(id) => select({ kind: 'node', id })} onChanged={flow.reloadFeedback} />
           )}
-          {tab === 'versions' && <VersionsPanel graph={graph} versionSignal={flow.signals.versions} onRestored={flow.accept} />}
+          {tab === 'versions' && <HistoryPanel graph={graph} versionSignal={flow.signals.versions} onRestored={flow.accept} />}
           {tab === 'runs' && <RunsPanel graphId={graph.id} runSignal={flow.signals.runs} selected={runDetail} runDoc={runDoc} onSelect={setRunDetail} />}
         </div>
       </aside>

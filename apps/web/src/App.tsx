@@ -1,12 +1,12 @@
 import type { GraphSummary } from '@agent-flow/core';
-import { Archive, LogOut, Plus, Workflow } from 'lucide-react';
+import { Workflow } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from './api/client';
 import { subscribe } from './api/events';
 import type { Identity } from './auth';
-import { Button, cx, Empty, Field, Input, Modal, Textarea, useConfirm, useToast } from './components/ui';
+import { Button, Empty, Field, Input, Modal, Textarea, useConfirm, useToast } from './components/ui';
 import { Editor } from './editor/Editor';
-import { timeAgo } from './lib/format';
+import { Sidebar } from './Sidebar';
 
 const routeId = () => location.hash.match(/^#\/flows\/([\w-]+)/)?.[1] ?? null;
 const navigate = (id: string | null) => {
@@ -43,42 +43,15 @@ export function App({ identity, signOut }: { identity: Identity; signOut: () => 
 
   return (
     <div className="flex h-full">
-      <aside className="flex w-52 shrink-0 flex-col border-r border-slate-200 bg-slate-900 text-slate-300 xl:w-64">
-        <div className="flex h-14 items-center gap-2 px-4 text-white">
-          <Workflow size={18} className="text-indigo-400" />
-          <span className="font-semibold">Agent Flow</span>
-        </div>
-        <div className="px-3 pb-2">
-          <Button variant="primary" className="w-full" onClick={() => setCreating(true)}><Plus size={15} />New flow</Button>
-        </div>
-        <nav className="flex-1 overflow-y-auto px-2 pb-2">
-          {flows?.length === 0 && <p className="px-2 py-4 text-xs text-slate-500">No flows yet. Create one, or ask your agent to build one over MCP.</p>}
-          {flows?.map((f) => (
-            <div key={f.id} className={cx('group flex items-center rounded-md', f.id === current ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60')}>
-              <a href={`#/flows/${f.id}`} className="min-w-0 flex-1 px-2.5 py-2">
-                <div className="truncate text-sm">{f.title}</div>
-                <div className="text-[11px] text-slate-500">{f.latestVersion ? `v${f.latestVersion}` : 'draft'} · {timeAgo(f.updatedAt)}</div>
-              </a>
-              <button type="button" title="Archive" className="mr-1 hidden rounded p-1.5 text-slate-500 hover:bg-slate-700 hover:text-slate-200 group-hover:block" onClick={() => archive(f)}>
-                <Archive size={14} />
-              </button>
-            </div>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2 border-t border-slate-800 px-4 py-3 text-xs">
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-slate-200">{identity.actor}</div>
-            <div className="truncate text-slate-500">{identity.workspaceId}</div>
-          </div>
-          <button type="button" title="Sign out" className="rounded p-1.5 hover:bg-slate-800" onClick={signOut}><LogOut size={14} /></button>
-        </div>
-      </aside>
+      <Sidebar flows={flows} current={current} identity={identity} onCreate={() => setCreating(true)} onArchive={archive} onSignOut={signOut} />
 
       {current ? (
         <Editor key={current} graphId={current} onGone={() => navigate(null)} />
       ) : (
         <main className="grid flex-1 place-items-center bg-slate-50">
-          <Empty title="Choose a flow">Pick a flow on the left, create one, or let your agent build it through the MCP endpoint at <code className="font-mono">/mcp</code>.</Empty>
+          <Empty icon={<Workflow size={20} />} title="Choose a flow">
+            Pick a flow on the left, create one, or let your agent build it through the MCP endpoint at <code className="font-mono">/mcp</code>.
+          </Empty>
         </main>
       )}
 
@@ -113,7 +86,7 @@ function NewFlowDialog({ onClose, onCreated }: { onClose: () => void; onCreated:
   };
 
   return (
-    <Modal title="New flow" onClose={onClose}>
+    <Modal title="New flow" description="Start empty and add steps on the canvas, or let your agent build it." onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <Field label="Name">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. New-employee onboarding" maxLength={120} autoFocus required />

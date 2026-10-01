@@ -1,6 +1,6 @@
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type Edge, type EdgeProps } from '@xyflow/react';
 import { Plus } from 'lucide-react';
-import { cx } from '../../components/ui';
+import { cx, Tooltip } from '../../components/ui';
 
 export type EdgeKind = 'plain' | 'branch' | 'fallback' | 'error';
 export type EdgeTone = 'normal' | 'selected' | 'invalid' | 'trace';
@@ -56,32 +56,38 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
       />
       <EdgeLabelRenderer>
         {data.label && (
-          <div
-            title={data.label}
-            style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${turnY}px)` }}
-            className={cx(
-              'nodrag nopan pointer-events-auto absolute max-w-[220px] cursor-pointer truncate rounded-full border px-2.5 py-0.5 text-[11px] leading-5 font-medium shadow-sm',
-              LABEL_STYLE[data.kind],
-              data.tone === 'selected' && 'border-indigo-300 text-indigo-700 ring-2 ring-indigo-500/15',
-              data.tone === 'invalid' && 'border-rose-300 text-rose-700',
-            )}
-          >
-            {data.label}
-          </div>
+          // Long labels are truncated; the tooltip shows them in full.
+          <Tooltip content={data.label.length > 32 ? data.label : null}>
+            <div
+              style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${turnY}px)` }}
+              className={cx(
+                'nodrag nopan pointer-events-auto absolute max-w-[220px] cursor-pointer truncate rounded-full border px-2.5 py-0.5 text-[11px] leading-5 font-medium shadow-sm',
+                LABEL_STYLE[data.kind],
+                data.tone === 'selected' && 'border-indigo-300 text-indigo-700 ring-2 ring-indigo-500/15',
+                data.tone === 'invalid' && 'border-rose-300 text-rose-700',
+              )}
+            >
+              {data.label}
+            </div>
+          </Tooltip>
         )}
         {selected && data.onInsert && (
-          <button
-            type="button"
-            title="Insert a step here"
-            onClick={(e) => {
-              e.stopPropagation();
-              data.onInsert?.();
-            }}
-            style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${insertY}px)` }}
-            className="nodrag nopan pointer-events-auto absolute grid size-6 place-items-center rounded-full bg-indigo-600 text-white shadow-md ring-4 ring-white transition-transform hover:scale-110"
-          >
-            <Plus size={14} strokeWidth={2.5} />
-          </button>
+          // Positioned by the wrapper: CSS `scale` composes after `transform`, so scaling this element would scale its offset too.
+          <div style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${insertY}px)` }} className="nodrag nopan pointer-events-auto absolute">
+            <Tooltip content="Insert a step">
+              <button
+                type="button"
+                aria-label="Insert a step"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onInsert?.();
+                }}
+                className="grid size-6 place-items-center rounded-full bg-indigo-600 text-white shadow-md ring-4 ring-white transition-transform hover:scale-110"
+              >
+                <Plus size={14} strokeWidth={2.5} />
+              </button>
+            </Tooltip>
+          </div>
         )}
       </EdgeLabelRenderer>
     </>
