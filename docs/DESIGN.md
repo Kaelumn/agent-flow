@@ -4,7 +4,7 @@
 
 给 MSP 的 SOP agent 用的**流程图服务**。
 
-- **建图**：用户和 agent 聊天，agent 通过 MCP 增删改流程图；人在画布上查看、修改、对节点留反馈。
+- **建图**：用户和 agent 聊天，agent 通过 MCP 增删改流程图；人在画布上查看、修改，或画框标注问题发回对话。
 - **运行**：agent 按已发布的图执行。服务端只告诉它当前节点和可走的边，并拒绝不合法的流转。
 - **流转决策和参数提取由 agent 负责**，本服务不调用业务工具，只负责约束和记录。
 
@@ -21,7 +21,7 @@
 | Revision | 草稿的修订号，用于乐观锁，每次写入加 1；没有实际变化的写入不产生新修订，只改节点位置的写入不记入修改历史 |
 | Version | 发布时生成的快照。发布前必须通过校验，运行只针对版本 |
 | Run | 基于某个版本的一次执行，记录当前节点、上下文（各节点输出）和每一步 |
-| Feedback | 人在某个节点上留的问题、指令或问题报告，agent 读取、回复并确认 |
+| Annotation | 审阅人在画布上画框圈出的问题和说明。无状态：不入库，发送后作为系统通知进入 MSPbots 对话，见[画布标注](integration/canvas-annotations.md) |
 | Tool Catalog | 可用工具及其参数 schema。从配置的 MCP 服务实时读取（服务名即系统名，`readOnlyHint` 决定是否写入），或从静态 JSON 读取（测试和离线开发用） |
 
 ## 3. 校验规则
@@ -54,7 +54,7 @@ loop:
 ## 5. 架构
 
 ```
-apps/web      React + @xyflow/react   画布、节点和边的编辑、反馈、版本、运行轨迹
+apps/web      React + @xyflow/react   画布、节点和边的编辑、标注、版本、运行轨迹
 apps/server   Fastify + MCP SDK       REST /api、MCP /mcp、SSE /api/events
 packages/core 共享的领域模型、Op、校验器，前后端共用同一份
 ```
@@ -72,12 +72,11 @@ packages/core 共享的领域模型、Op、校验器，前后端共用同一份
 | `graphs` | 元数据、草稿（JSON）、修订号、最新版本号 |
 | `graph_versions` | 发布快照（JSON）和发布说明 |
 | `graph_events` | 草稿的修改历史：谁在哪个修订号执行了哪些 Op |
-| `feedback` | 节点反馈及回复 |
 | `runs` | 运行状态、当前节点、输入、上下文 |
 | `run_steps` | 每一步的节点、选择的边、工具参数、结果或错误 |
 
 ## 7. 范围
 
-- **本期**：建图（MCP 和画布）、校验、发布和版本、反馈闭环、修改历史、运行协议和轨迹高亮、静态工具目录、MySQL。
+- **本期**：建图（MCP 和画布）、校验、发布和版本、画布标注（嵌入 MSPbots）、修改历史、运行协议和轨迹高亮、静态工具目录、MySQL。
 - **后续**：真实认证和 RBAC、PostgreSQL 实测、多实例部署（Redis）、工具声明返回结构（MCP outputSchema，让校验器在建图时检查引用的字段名）。
 - **下期规划**：[运行生命周期](roadmap/run-lifecycle.md)（租约与接管、两阶段步骤与幂等、重试、人工审批与任务节点）。

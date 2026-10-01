@@ -15,6 +15,8 @@ import {
 import '@xyflow/react/dist/style.css';
 import { MousePointerClick } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnnotationLayer } from '../annotate/AnnotationLayer';
+import type { Annotation } from '../annotate/message';
 import { errorJumps, nodeSize, resolvePositions } from '../layout';
 import { edgeColor, edgeTypes, type CanvasEdge, type EdgeKind, type FlowEdgeData } from './edges';
 import { nodeTypes, type CanvasNode, type RunMark } from './nodes';
@@ -33,7 +35,6 @@ interface Props {
   doc: GraphDoc;
   issues: Issue[];
   toolsByName: Map<string, ToolDefinition>;
-  openFeedbackByNode: Map<string, number>;
   trace: RunTrace | null;
   selection: Selection;
   onSelect: (selection: Selection) => void;
@@ -46,6 +47,9 @@ interface Props {
   onAddStep: () => void;
   onAddEnd: () => void;
   onTidy: () => void;
+  onAnnotate: () => void;
+  /** Present while the reviewer is annotating; the canvas is then frozen under the annotation layer. */
+  annotate: { mode: 'send' | 'copy'; onSend: (annotations: Annotation[]) => Promise<void>; onExit: () => void } | null;
   onReady: (instance: CanvasInstance) => void;
   /** Viewing a published version: selection only. */
   readOnly?: boolean;
@@ -55,7 +59,7 @@ const JUMP_PREFIX = 'jump:';
 const MINIMAP_COLOR = { start: '#10b981', tool: '#6366f1', end: '#94a3b8' } as const;
 
 export function FlowCanvas(props: Props) {
-  const { doc, issues, toolsByName, openFeedbackByNode, trace, selection, onSelect, readOnly = false } = props;
+  const { doc, issues, toolsByName, trace, selection, onSelect, readOnly = false } = props;
   const instance = useRef<CanvasInstance | null>(null);
 
   const derived = useMemo<CanvasNode[]>(() => {
@@ -71,12 +75,11 @@ export function FlowCanvas(props: Props) {
         node,
         tool: node.tool ? toolsByName.get(node.tool.name) : undefined,
         issues: issues.filter((i) => i.nodeId === node.id),
-        openFeedback: openFeedbackByNode.get(node.id) ?? 0,
         runMark: trace?.marks.get(node.id),
         errorTarget: node.onError?.targetNodeId ? titles.get(node.onError.targetNodeId) : undefined,
       },
     }));
-  }, [doc, issues, toolsByName, openFeedbackByNode, trace, selection]);
+  }, [doc, issues, toolsByName, trace, selection]);
 
   // Local copy so dragging is smooth; the server copy wins whenever it changes.
   const [nodes, setNodes] = useState(derived);
@@ -126,6 +129,8 @@ export function FlowCanvas(props: Props) {
   };
 
   const isBlank = doc.edges.length === 0 && doc.nodes.length <= 2;
+  const { annotate } = props;
+  const editable = !readOnly && !annotate;
 
   return (
     <ReactFlow
@@ -148,9 +153,9 @@ export function FlowCanvas(props: Props) {
         props.onDelete([...ns.map((n) => ({ kind: 'node' as const, id: n.id })), ...es.map((e) => ({ kind: 'edge' as const, id: e.id }))]);
         return false;
       }}
-      deleteKeyCode={readOnly ? null : ['Delete', 'Backspace']}
-      nodesDraggable={!readOnly}
-      nodesConnectable={!readOnly}
+      deleteKeyCode={editable ? ['Delete', 'Backspace'] : null}
+      nodesDraggable={editable}
+      nodesConnectable={editable}
       connectionRadius={32}
       snapToGrid
       snapGrid={[8, 8]}
@@ -161,7 +166,11 @@ export function FlowCanvas(props: Props) {
       className="af-canvas"
     >
       <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="#cbd5e1" />
-      <Toolbar readOnly={readOnly} onAddStep={props.onAddStep} onAddEnd={props.onAddEnd} onTidy={props.onTidy} />
+      {annotate ? (
+        <AnnotationLayer doc={doc} mode={annotate.mode} onSend={annotate.onSend} onExit={annotate.onExit} />
+      ) : (
+        <Toolbar readOnly={readOnly} onAddStep={props.onAddStep} onAddEnd={props.onAddEnd} onTidy={props.onTidy} onAnnotate={props.onAnnotate} />
+      )}
       <MiniMap
         pannable
         zoomable
@@ -172,7 +181,7 @@ export function FlowCanvas(props: Props) {
         nodeColor={(n) => MINIMAP_COLOR[n.type as keyof typeof MINIMAP_COLOR] ?? '#94a3b8'}
         nodeBorderRadius={6}
       />
-      {isBlank && !readOnly && (
+      {isBlank && editable && (
         <Panel position="top-center" className="!mt-6">
           <div className="flex max-w-md items-start gap-3 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg shadow-slate-900/5 backdrop-blur">
             <MousePointerClick size={18} className="mt-0.5 shrink-0 text-indigo-500" />

@@ -1,4 +1,4 @@
-import type { Feedback, GraphOp, ToolDefinition } from '@agent-flow/core';
+import type { GraphOp, ToolDefinition } from '@agent-flow/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, type GraphWithIssues } from '../api/client';
 import { subscribe } from '../api/events';
@@ -14,7 +14,6 @@ export function useFlow(graphId: string) {
   const { fail, notify } = useToast();
   const [graph, setGraph] = useState<GraphWithIssues | null>(null);
   const [tools, setTools] = useState<ToolDefinition[]>([]);
-  const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [signals, setSignals] = useState<Signals>({ runs: 0, versions: 0 });
   const [missing, setMissing] = useState(false);
   const revision = useRef(0);
@@ -32,18 +31,15 @@ export function useFlow(graphId: string) {
       }),
     [graphId],
   );
-  const reloadFeedback = useCallback(() => api.feedback(graphId).then(setFeedback, fail), [graphId]);
 
   useEffect(() => {
     setGraph(null);
     setMissing(false);
     void reload();
-    void reloadFeedback();
     api.tools().then(setTools, fail);
 
     const resync = () => {
       void reload();
-      void reloadFeedback();
       setSignals((s) => ({ runs: s.runs + 1, versions: s.versions + 1 }));
     };
 
@@ -61,9 +57,6 @@ export function useFlow(graphId: string) {
           break;
         case 'graph.archived':
           setMissing(true);
-          break;
-        case 'feedback.changed':
-          void reloadFeedback();
           break;
         case 'run.changed':
           setSignals((s) => ({ ...s, runs: s.runs + 1 }));
@@ -94,7 +87,7 @@ export function useFlow(graphId: string) {
 
   const toolsByName = useMemo(() => new Map(tools.map((t) => [t.name, t])), [tools]);
 
-  return { graph, missing, tools, toolsByName, feedback, signals, edit, reload, accept, reloadFeedback };
+  return { graph, missing, tools, toolsByName, signals, edit, reload, accept };
 }
 
 export type FlowState = ReturnType<typeof useFlow>;

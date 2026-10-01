@@ -4,7 +4,6 @@ export type ServerEvent =
   | { type: 'graph.changed'; graphId: string; revision: number; actor: string; source: string }
   | { type: 'graph.published'; graphId: string; version: number }
   | { type: 'graph.archived'; graphId: string }
-  | { type: 'feedback.changed'; graphId: string; feedbackId: string }
   | { type: 'run.changed'; graphId: string; runId: string; status: string; currentNodeId: string | null };
 
 const RETRY_MS = 3000;

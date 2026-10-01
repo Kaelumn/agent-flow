@@ -1,14 +1,14 @@
 import type { GraphDoc, GraphOp, NodeInput, Position } from '@agent-flow/core';
-import { AlertCircle, Eye, History, MessageSquare, PlayCircle, SlidersHorizontal } from 'lucide-react';
+import { AlertCircle, Eye, History, PlayCircle, SlidersHorizontal } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { Badge, Button, cx, Empty, Tooltip, useConfirm, useToast } from '../components/ui';
+import { buildMessage, deliver, type Annotation } from './annotate/message';
 import { FlowCanvas, type CanvasInstance, type RunTrace, type Selection } from './canvas/FlowCanvas';
 import type { RunMark } from './canvas/nodes';
 import { autoLayout, makeRoomBefore, NODE_HEIGHT, NODE_WIDTH, resolvePositions, spotBelow } from './layout';
 import { EdgePanel } from './panels/EdgePanel';
-import { FeedbackPanel } from './panels/FeedbackPanel';
 import { FlowPanel } from './panels/FlowPanel';
 import { IssuesPanel } from './panels/IssuesPanel';
 import { NodePanel } from './panels/NodePanel';
@@ -17,19 +17,23 @@ import { HistoryPanel } from './panels/HistoryPanel';
 import { EditorHeader } from './EditorHeader';
 import { useFlow } from './useFlow';
 
-type Tab = 'inspect' | 'issues' | 'feedback' | 'versions' | 'runs';
+type Tab = 'inspect' | 'issues' | 'versions' | 'runs';
 
-/** Mounted with key={graphId}, so all state starts fresh when switching flows. */
-export function Editor({ graphId, onGone }: { graphId: string; onGone: () => void }) {
+/**
+ * Mounted with key={graphId}, so all state starts fresh when switching flows.
+ * `hostOrigin` is the MSPbots page embedding the canvas, which receives annotations; null when opened on its own.
+ */
+export function Editor({ graphId, hostOrigin, onGone }: { graphId: string; hostOrigin: string | null; onGone: () => void }) {
   const flow = useFlow(graphId);
   const { graph, edit } = flow;
-  const { fail } = useToast();
+  const { fail, notify } = useToast();
   const confirm = useConfirm();
   const [selection, setSelection] = useState<Selection>(null);
   const [tab, setTab] = useState<Tab>('inspect');
   const [rf, setRf] = useState<CanvasInstance | null>(null);
   const [runDetail, setRunDetail] = useState<RunDetail | null>(null);
   const [runDoc, setRunDoc] = useState<GraphDoc | null>(null);
+  const [annotating, setAnnotating] = useState(false);
 
   useEffect(() => {
     if (flow.missing) onGone();
@@ -45,11 +49,21 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
   const doc = viewingRun ? runDoc! : graph?.draft;
   const issues = viewingRun || !graph ? [] : graph.issues;
   const trace = useMemo(() => (runDetail ? traceOf(runDetail) : null), [runDetail]);
-  const openFeedbackByNode = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const f of flow.feedback) if (f.nodeId && f.status === 'open') counts.set(f.nodeId, (counts.get(f.nodeId) ?? 0) + 1);
-    return counts;
-  }, [flow.feedback]);
+
+  const startAnnotating = () => {
+    setSelection(null);
+    setAnnotating(true);
+  };
+
+  // "A" starts annotating, as the toolbar button does.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName));
+      if (e.key.toLowerCase() === 'a' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing && !viewingRun) startAnnotating();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   // Follow a run: keep the step it is waiting on in view.
   const runAt = viewingRun ? runDetail.run.currentNodeId : null;
@@ -62,11 +76,10 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
   const selectedNode = selection?.kind === 'node' ? doc.nodes.find((n) => n.id === selection.id) : undefined;
   const selectedEdge = selection?.kind === 'edge' ? doc.edges.find((e) => e.id === selection.id) : undefined;
   const errorCount = graph.issues.filter((i) => i.severity === 'error').length;
-  const openFeedback = flow.feedback.filter((f) => f.status === 'open').length;
 
   const select = (s: Selection) => {
     setSelection(s);
-    if (s && tab !== 'feedback' && tab !== 'runs') setTab('inspect');
+    if (s && tab !== 'runs') setTab('inspect');
     if (s?.kind === 'node') focusNode(rf, s.id);
   };
 
@@ -131,6 +144,20 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
     setSelection(null);
   };
 
+  /** Annotations are not stored: they go to the conversation (or the clipboard) and are gone from here. */
+  const sendAnnotations = async (items: Annotation[]) => {
+    const message = buildMessage({ id: graph.id, title: graph.title, revision: graph.revision }, graph.draft, items);
+    try {
+      const outcome = await deliver(message, hostOrigin);
+      const n = `${items.length} annotation${items.length > 1 ? 's' : ''}`;
+      if (outcome === 'sent') notify(`Sent ${n} to the conversation`);
+      else notify(hostOrigin ? `MSPbots did not confirm, so ${n} were copied. Paste them into the chat.` : `Copied ${n}. Paste them into your chat with the agent.`);
+      setAnnotating(false);
+    } catch (err) {
+      fail(err);
+    }
+  };
+
   const layout = async () => {
     await edit([{ op: 'moveNodes', positions: autoLayout(graph.draft) }]);
     requestAnimationFrame(() => rf?.fitView({ padding: 0.2, duration: 300 }));
@@ -139,7 +166,6 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
   const tabs: { id: Tab; label: string; icon: ReactNode; count?: number; tone?: 'red' | 'amber' | 'blue' }[] = [
     { id: 'inspect', label: 'Inspect', icon: <SlidersHorizontal size={14} /> },
     { id: 'issues', label: 'Problems', icon: <AlertCircle size={14} />, count: graph.issues.length, tone: errorCount ? 'red' : 'amber' },
-    { id: 'feedback', label: 'Feedback', icon: <MessageSquare size={14} />, count: openFeedback, tone: 'blue' },
     { id: 'versions', label: 'History', icon: <History size={14} /> },
     { id: 'runs', label: 'Runs', icon: <PlayCircle size={14} /> },
   ];
@@ -165,7 +191,6 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
             doc={doc}
             issues={issues}
             toolsByName={flow.toolsByName}
-            openFeedbackByNode={openFeedbackByNode}
             trace={trace}
             selection={selection}
             readOnly={viewingRun}
@@ -179,6 +204,8 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
             onAddStep={() => void addNode('tool')}
             onAddEnd={() => void addNode('end')}
             onTidy={() => void layout()}
+            onAnnotate={startAnnotating}
+            annotate={annotating && !viewingRun ? { mode: hostOrigin ? 'send' : 'copy', onSend: sendAnnotations, onExit: () => setAnnotating(false) } : null}
           />
         </div>
       </div>
@@ -232,9 +259,6 @@ export function Editor({ graphId, onGone }: { graphId: string; onGone: () => voi
               <FlowPanel graph={graph} onSave={(meta) => api.updateGraph(graph.id, meta).then(flow.accept, fail)} />
             ))}
           {tab === 'issues' && <IssuesPanel issues={graph.issues} doc={graph.draft} onFocus={select} />}
-          {tab === 'feedback' && (
-            <FeedbackPanel graphId={graph.id} doc={graph.draft} items={flow.feedback} selectedNodeId={selectedNode?.id ?? null} onFocusNode={(id) => select({ kind: 'node', id })} onChanged={flow.reloadFeedback} />
-          )}
           {tab === 'versions' && <HistoryPanel graph={graph} versionSignal={flow.signals.versions} onRestored={flow.accept} />}
           {tab === 'runs' && <RunsPanel graphId={graph.id} runSignal={flow.signals.runs} selected={runDetail} runDoc={runDoc} onSelect={setRunDetail} />}
         </div>

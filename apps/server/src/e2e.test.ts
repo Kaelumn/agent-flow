@@ -49,7 +49,7 @@ afterAll(async () => {
     if (graphIds.length) {
       const runIds = (await db.selectFrom('runs').select('id').where('graph_id', 'in', graphIds).execute()).map((r) => r.id);
       if (runIds.length) await db.deleteFrom('run_steps').where('run_id', 'in', runIds).execute();
-      for (const table of ['runs', 'feedback', 'graph_events', 'graph_versions'] as const) await db.deleteFrom(table).where('graph_id', 'in', graphIds).execute();
+      for (const table of ['runs', 'graph_events', 'graph_versions'] as const) await db.deleteFrom(table).where('graph_id', 'in', graphIds).execute();
       await db.deleteFrom('graphs').where('id', 'in', graphIds).execute();
     }
     await db.destroy();
@@ -101,20 +101,6 @@ describe('agent builds and runs a flow over MCP', () => {
 
   it('refuses stale revisions', async () => {
     await expect(call('flow_update_node', { flowId, nodeId: 'check', patch: { instruction: 'x' }, expectedRevision: 1 })).rejects.toMatchObject({ error: 'conflict' });
-  });
-
-  it('closes the feedback loop with the canvas', async () => {
-    const res = await fetch(`${base}/api/graphs/${flowId}/feedback`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${WEB}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ nodeId: 'check', kind: 'directive', text: 'Lowercase the UPN before checking' }),
-    });
-    expect(res.status).toBe(201);
-    const [item] = await call<any[]>('feedback_list', { flowId });
-    expect(item.text).toContain('Lowercase');
-    await call('flow_update_node', { flowId, nodeId: 'check', patch: { instruction: 'Lowercase the UPN first' } });
-    await call('feedback_answer', { feedbackId: item.id, answer: 'Added to the node instruction' });
-    expect(await call('feedback_list', { flowId })).toEqual([]);
   });
 
   it('publishes and follows the flow step by step', async () => {

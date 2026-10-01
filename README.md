@@ -2,7 +2,7 @@
 
 SOP flowcharts that an agent builds with people and then follows step by step.
 
-- **Build**: your agent creates and edits flows over MCP; people review and edit the same flow on a canvas and leave feedback on nodes for the agent.
+- **Build**: your agent creates and edits flows over MCP; people review and edit the same flow on a canvas, and box what needs to change to send it back to the agent's conversation ([canvas annotations](docs/integration/canvas-annotations.md)).
 - **Run**: the agent executes a published version. At each step the server tells it which tool to call and which edges it may take, and rejects steps out of order or edges that do not exist.
 
 Design and rules: [docs/DESIGN.md](docs/DESIGN.md).
@@ -83,7 +83,6 @@ The server sends usage instructions on connect. Tools:
 |---|---|
 | Catalog | `tools_search` |
 | Build | `flow_list`, `flow_create`, `flow_get`, `flow_update`, `flow_add_nodes`, `flow_update_node`, `flow_remove_node`, `flow_add_edges`, `flow_update_edge`, `flow_remove_edge`, `flow_validate`, `flow_publish` |
-| Feedback | `feedback_list`, `feedback_answer`, `feedback_resolve` |
 | Run | `run_start`, `run_current`, `run_submit`, `run_cancel`, `run_get` |
 
 A run loop for the agent's skill:

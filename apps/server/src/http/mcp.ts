@@ -18,7 +18,7 @@ Building a flow:
 3. Every node type is start, tool or end. Branches are edges with a natural-language condition; mark at most one edge per node as isDefault.
    In argsHint and instructions, refer to data with {{input.<name>}} for run inputs and {{<outputKey>.<field>}} for a result an earlier step saved with outputKey (e.g. {{new_user.id}}). The validator checks that such data exists and is produced before the step; the runner fills in the values. Give every step whose result is used later an outputKey. Keep free text only for values the agent must derive.
 4. After each change read the returned issues and fix errors. flow_publish once there are none.
-5. Check feedback_list: people leave questions and change requests on nodes in the canvas. Apply them, then feedback_answer.
+5. Reviewers annotate the canvas and the annotations arrive in the conversation as an "[Agent Flow] … annotations" notice listing node and edge ids and the draft revision they were written against. flow_get, apply each note to the draft, then summarise what you changed per annotation.
 
 Running a flow:
 run_start, then repeat: read the step, call the named tool yourself, run_submit the outcome and the edge whose condition holds, until the run ends.
@@ -53,7 +53,7 @@ export async function mcpRoutes(app: FastifyInstance, { services, authenticate, 
   app.delete('/', async (_req, reply) => reply.code(405).send(notAllowed));
 }
 
-function buildServer({ graphs, feedback, runs, tools }: Services, p: Principal, canvasUrl: (flowId: string) => string | undefined, logError: (err: unknown) => void) {
+function buildServer({ graphs, runs, tools }: Services, p: Principal, canvasUrl: (flowId: string) => string | undefined, logError: (err: unknown) => void) {
   const server = new McpServer({ name: 'agent-flow', version: '0.1.0' }, { instructions: INSTRUCTIONS });
 
   const tool = <S extends z.ZodRawShape>(name: string, description: string, inputSchema: S, handler: (args: z.infer<z.ZodObject<S>>) => Promise<unknown>) =>
@@ -150,21 +150,6 @@ function buildServer({ graphs, feedback, runs, tools }: Services, p: Principal, 
     flowId: FlowId,
     note: z.string().default('').describe('What changed in this version'),
   }, async ({ flowId, note }) => ({ ...(await graphs.publish(p, flowId, note)), canvasUrl: canvasUrl(flowId) }));
-
-  // ---- Feedback from people on the canvas
-  tool('feedback_list', 'List feedback people left on a flow or its nodes. Defaults to open items.', {
-    flowId: FlowId,
-    status: z.array(z.enum(['open', 'answered', 'resolved'])).default(['open']),
-  }, async ({ flowId, status }) => feedback.list(p, flowId, status));
-
-  tool('feedback_answer', 'Reply to a feedback item, e.g. to say what you changed or to ask for clarification.', {
-    feedbackId: z.string(),
-    answer: z.string().min(1),
-  }, async ({ feedbackId, answer }) => feedback.answer(p, feedbackId, answer));
-
-  tool('feedback_resolve', 'Mark a feedback item as resolved once it has been handled.', { feedbackId: z.string() }, async ({ feedbackId }) =>
-    feedback.setStatus(p, feedbackId, 'resolved'),
-  );
 
   // ---- Running flows
   tool('run_start', 'Start a run of the latest published version (or a given one). Returns the first step to perform.', {

@@ -91,26 +91,6 @@ export interface GraphVersion {
   createdAt: number;
 }
 
-export const FeedbackKind = z.enum(['question', 'directive', 'issue']);
-export type FeedbackKind = z.infer<typeof FeedbackKind>;
-
-export const FeedbackStatus = z.enum(['open', 'answered', 'resolved']);
-export type FeedbackStatus = z.infer<typeof FeedbackStatus>;
-
-export interface Feedback {
-  id: string;
-  graphId: string;
-  nodeId: string | null;
-  kind: FeedbackKind;
-  text: string;
-  author: string;
-  status: FeedbackStatus;
-  answer: string | null;
-  answeredBy: string | null;
-  createdAt: number;
-  updatedAt: number;
-}
-
 export interface GraphEvent {
   id: string;
   graphId: string;

@@ -4,7 +4,6 @@ export type DomainEvent =
   | { type: 'graph.changed'; workspaceId: string; graphId: string; revision: number; actor: string; source: string }
   | { type: 'graph.published'; workspaceId: string; graphId: string; version: number }
   | { type: 'graph.archived'; workspaceId: string; graphId: string }
-  | { type: 'feedback.changed'; workspaceId: string; graphId: string; feedbackId: string }
   | { type: 'run.changed'; workspaceId: string; graphId: string; runId: string; status: string; currentNodeId: string | null };
 
 /** In-process pub/sub. Replace with Redis pub/sub when running more than one instance. */

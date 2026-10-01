@@ -1,4 +1,4 @@
-import { FeedbackKind, FeedbackStatus, GraphOp } from '@agent-flow/core';
+import { GraphOp } from '@agent-flow/core';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Principal } from '../common/principal.js';
@@ -16,21 +16,19 @@ const IdParams = z.object({ id: z.string().min(1) });
 const VersionParams = IdParams.extend({ version: z.coerce.number().int().positive() });
 const GraphMeta = z.object({ title: z.string().trim().min(1).max(120), description: z.string().max(4000).optional() });
 const EditBody = z.object({ ops: z.array(GraphOp).min(1), expectedRevision: z.number().int().optional() });
-const FeedbackBody = z.object({ nodeId: z.string().nullable().optional(), kind: FeedbackKind, text: z.string().trim().min(1).max(4000) });
-const FeedbackQuery = z.object({ status: z.string().optional() });
 const ToolsQuery = z.object({ q: z.string().optional(), connector: z.string().optional() });
 const EventsQuery = z.object({ graphId: z.string().optional() });
 
 /** Canvas-facing API. Every write goes through the same services the agent uses over MCP. */
-export async function restRoutes(app: FastifyInstance, { services, authenticate }: { services: Services; authenticate: Authenticate }) {
-  const { graphs, feedback, runs, tools } = services;
+export async function restRoutes(app: FastifyInstance, { services, authenticate, embedOrigins }: { services: Services; authenticate: Authenticate; embedOrigins: string[] }) {
+  const { graphs, runs, tools } = services;
 
   app.decorateRequest('principal', null as unknown as Principal);
   app.addHook('onRequest', async (req) => {
     req.principal = authenticate(req, 'web');
   });
 
-  app.get('/me', async (req) => ({ workspaceId: req.principal.workspaceId, actor: req.principal.actor }));
+  app.get('/me', async (req) => ({ workspaceId: req.principal.workspaceId, actor: req.principal.actor, embedOrigins }));
   app.get('/tools', async (req) => {
     const { q, connector } = ToolsQuery.parse(req.query);
     return tools.list({ query: q, connector });
@@ -63,23 +61,6 @@ export async function restRoutes(app: FastifyInstance, { services, authenticate 
     return graphs.restoreVersion(req.principal, id, version);
   });
   app.get('/graphs/:id/history', async (req) => graphs.history(req.principal, IdParams.parse(req.params).id));
-
-  app.get('/graphs/:id/feedback', async (req) => {
-    const { status } = FeedbackQuery.parse(req.query);
-    const statuses = status ? z.array(FeedbackStatus).parse(status.split(',')) : undefined;
-    return feedback.list(req.principal, IdParams.parse(req.params).id, statuses);
-  });
-  app.post('/graphs/:id/feedback', async (req, reply) =>
-    reply.code(201).send(await feedback.create(req.principal, IdParams.parse(req.params).id, FeedbackBody.parse(req.body))),
-  );
-  app.post('/feedback/:id/answer', async (req) => {
-    const { answer } = z.object({ answer: z.string().trim().min(1).max(4000) }).parse(req.body);
-    return feedback.answer(req.principal, IdParams.parse(req.params).id, answer);
-  });
-  app.post('/feedback/:id/status', async (req) => {
-    const { status } = z.object({ status: z.enum(['open', 'resolved']) }).parse(req.body);
-    return feedback.setStatus(req.principal, IdParams.parse(req.params).id, status);
-  });
 
   app.get('/graphs/:id/runs', async (req) => runs.list(req.principal, IdParams.parse(req.params).id));
   app.get('/runs/:id', async (req) => runs.get(req.principal, IdParams.parse(req.params).id));

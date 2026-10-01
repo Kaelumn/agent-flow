@@ -1,6 +1,6 @@
 import type { FlowNode, Issue, StepStatus, ToolDefinition } from '@agent-flow/core';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
-import { AlertCircle, AlertTriangle, Check, CircleCheck, CircleMinus, CircleX, CornerDownRight, MessageSquare, Minus, PenLine, Play, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, CircleCheck, CircleMinus, CircleX, CornerDownRight, Minus, PenLine, Play, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cx } from '../../components/ui';
 import { connectorStyle } from '../connectors';
@@ -12,7 +12,6 @@ export interface FlowNodeData extends Record<string, unknown> {
   node: FlowNode;
   tool?: ToolDefinition;
   issues: Issue[];
-  openFeedback: number;
   runMark?: RunMark;
   /** Title of the node the run jumps to when this step fails. */
   errorTarget?: string;
@@ -46,16 +45,15 @@ function RunBadge({ mark }: { mark?: RunMark }) {
   );
 }
 
-/** Problems and open feedback, drawn inside the card so they never collide with neighbours. */
-function Signals({ issues, openFeedback }: Pick<FlowNodeData, 'issues' | 'openFeedback'>) {
+/** Problems, drawn inside the card so they never collide with neighbours. */
+function Signals({ issues }: Pick<FlowNodeData, 'issues'>) {
   const errors = issues.filter((i) => i.severity === 'error').length;
   const warnings = issues.length - errors;
-  if (!errors && !warnings && !openFeedback) return null;
+  if (!errors && !warnings) return null;
   return (
     <div className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold tabular-nums">
       {errors > 0 && <span title={`${errors} error(s)`} className="flex items-center gap-0.5 text-rose-600"><AlertCircle size={13} />{errors}</span>}
       {warnings > 0 && <span title={`${warnings} warning(s)`} className="flex items-center gap-0.5 text-amber-600"><AlertTriangle size={13} />{warnings}</span>}
-      {openFeedback > 0 && <span title="Open feedback" className="flex items-center gap-0.5 text-sky-600"><MessageSquare size={13} />{openFeedback}</span>}
     </div>
   );
 }
@@ -85,7 +83,7 @@ function ToolNode({ data, selected }: NodeProps<CanvasNode>) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="line-clamp-2 text-[13px] leading-snug font-semibold text-slate-900">{node.title}</div>
-            <Signals issues={data.issues} openFeedback={data.openFeedback} />
+            <Signals issues={data.issues} />
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-500">
             <span className="shrink-0">{tool ? style.label : 'No tool'}</span>
@@ -118,7 +116,7 @@ function StartNode({ data, selected }: NodeProps<CanvasNode>) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-[13px] font-semibold text-slate-900">{data.node.title}</span>
-          <Signals issues={data.issues} openFeedback={data.openFeedback} />
+          <Signals issues={data.issues} />
         </div>
         <div className="truncate text-[11px] text-slate-500">
           {inputs.length ? inputs.map((i) => <span key={i.name} className="mr-1 font-mono">{i.name}</span>) : 'No inputs'}
@@ -150,7 +148,7 @@ function EndNode({ data, selected }: NodeProps<CanvasNode>) {
         <div className="truncate text-[12.5px] font-semibold text-slate-900">{data.node.title}</div>
         <div className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">{outcome.label}</div>
       </div>
-      <Signals issues={data.issues} openFeedback={data.openFeedback} />
+      <Signals issues={data.issues} />
     </div>
   );
 }

@@ -9,7 +9,7 @@
     "dev:web": "npm run dev -w @agent-flow/web",
     "build": "npm run build -w @agent-flow/core && npm run build -w @agent-flow/server && npm run build -w @agent-flow/web",
     "typecheck": "tsc -b && npm run typecheck -w @agent-flow/web",
-    "test": "npm test -w @agent-flow/core -w @agent-flow/server",
+    "test": "npm test -w @agent-flow/core -w @agent-flow/server -w @agent-flow/web",
     "db:migrate": "npm run db:migrate -w @agent-flow/server",
     "db:seed": "npm run db:seed -w @agent-flow/server"
   },

@@ -11,7 +11,7 @@ import { mcpRoutes } from './http/mcp.js';
 import { restRoutes } from './http/rest.js';
 
 export interface AppDeps {
-  config: Pick<Config, 'LOG_LEVEL' | 'WEB_DIST' | 'PUBLIC_WEB_URL'>;
+  config: Pick<Config, 'LOG_LEVEL' | 'WEB_DIST' | 'PUBLIC_WEB_URL' | 'EMBED_ORIGINS'>;
   db: Database;
   services: Services;
   authenticate: Authenticate;
@@ -34,10 +34,16 @@ export async function buildApp({ config, db, services, authenticate }: AppDeps) 
     return { status: 'ok' };
   });
 
-  await app.register(restRoutes, { prefix: '/api', services, authenticate });
+  await app.register(restRoutes, { prefix: '/api', services, authenticate, embedOrigins: config.EMBED_ORIGINS });
   await app.register(mcpRoutes, { prefix: '/mcp', services, authenticate, publicWebUrl: config.PUBLIC_WEB_URL });
 
   if (existsSync(config.WEB_DIST)) {
+    if (config.EMBED_ORIGINS.length) {
+      const policy = `frame-ancestors 'self' ${config.EMBED_ORIGINS.join(' ')}`;
+      app.addHook('onSend', async (req, reply) => {
+        if (!req.url.startsWith('/api') && !req.url.startsWith('/mcp')) reply.header('content-security-policy', policy);
+      });
+    }
     await app.register(fastifyStatic, { root: config.WEB_DIST, wildcard: false });
     app.setNotFoundHandler((req, reply) =>
       req.method === 'GET' && !req.url.startsWith('/api') && !req.url.startsWith('/mcp')

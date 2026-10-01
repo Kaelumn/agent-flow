@@ -9,6 +9,8 @@ export const getToken = () => localStorage.getItem(KEY);
 export interface Identity {
   workspaceId: string;
   actor: string;
+  /** Pages allowed to embed the canvas and receive annotations. */
+  embedOrigins: string[];
 }
 
 /** Renders children once a valid token is stored; otherwise asks for one. */

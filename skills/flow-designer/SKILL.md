@@ -63,5 +63,9 @@ Create the flow with `flow_create`, then add nodes and edges. Rules:
 
 ## 5. Iterate
 
-- People leave feedback on nodes in the canvas. Read it with `feedback_list`, make the change, and reply with `feedback_answer` saying what you changed. Resolve an item only when the change fully covers it.
+- Reviewers annotate the canvas: they box parts of the flow and write what should change. The annotations arrive in the conversation as a notice starting with `[Agent Flow]`, listing each note with the step and edge ids it covers and the draft revision it was written against. Handle them like this:
+  1. `flow_get` the flow. If its revision is above the one in the notice, check that every id still exists and still means what the note assumes; ask about any that do not.
+  2. Treat each note as a change request for exactly the elements it lists (`near` means the reviewer pointed at empty canvas next to them, usually asking for something to be added there). A note covering the whole flow applies to its overall structure.
+  3. Make the edits with `expectedRevision`, then run the walk-through from section 4 on the branches you touched.
+  4. Reply with one line per annotation number saying what you changed, or the question that blocks it. Do not publish unless the person asks.
 - To change an existing flow, read it with `flow_get` first and pass its `revision` as `expectedRevision` on your edits. Change only what was asked; never rebuild a flow from scratch. Publish a new version with a note describing the change.

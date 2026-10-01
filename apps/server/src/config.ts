@@ -20,6 +20,22 @@ const AuthTokens = z
     return tokens;
   });
 
+/** EMBED_ORIGINS="https://a.example.com,https://b.example.com" */
+const Origins = z
+  .string()
+  .default('')
+  .transform((raw, ctx) =>
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((value) => {
+        const origin = URL.canParse(value) ? new URL(value).origin : 'null';
+        if (origin === 'null' || origin !== value.replace(/\/$/, '')) ctx.addIssue({ code: 'custom', message: `invalid origin "${value}", expected e.g. https://app.example.com` });
+        return origin;
+      }),
+  );
+
 const Env = z.object({
   HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(3100),
@@ -35,6 +51,8 @@ const Env = z.object({
   WEB_DIST: z.string().default(`${packageRoot}../web/dist`),
   /** Base URL of the web app, e.g. https://flows.example.com; lets MCP results link to the canvas. */
   PUBLIC_WEB_URL: z.string().url().optional(),
+  /** Pages allowed to embed the canvas and receive its annotations (see docs/integration/canvas-annotations.md). */
+  EMBED_ORIGINS: Origins,
 });
 
 export type Config = z.infer<typeof Env>;

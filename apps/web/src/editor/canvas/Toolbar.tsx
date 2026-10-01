@@ -1,5 +1,5 @@
 import { Panel, useReactFlow, useViewport } from '@xyflow/react';
-import { CircleStop, LayoutGrid, Maximize, Minus, Plus, SquarePlus } from 'lucide-react';
+import { CircleStop, LayoutGrid, Maximize, Minus, Plus, SquareDashedMousePointer, SquarePlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cx, Tooltip } from '../../components/ui';
 
@@ -8,10 +8,11 @@ interface Props {
   onAddStep: () => void;
   onAddEnd: () => void;
   onTidy: () => void;
+  onAnnotate: () => void;
 }
 
 /** Floating canvas toolbar: editing on the left, view controls on the right. */
-export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy }: Props) {
+export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy, onAnnotate }: Props) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const { zoom } = useViewport();
 
@@ -23,6 +24,8 @@ export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy }: Props) {
             <Tool onClick={onAddStep} label="Add a step" shortcut="Step" primary><SquarePlus size={16} /></Tool>
             <Tool onClick={onAddEnd} label="Add an end" shortcut="End"><CircleStop size={16} /></Tool>
             <Tool onClick={onTidy} label="Tidy up the layout" shortcut="Tidy"><LayoutGrid size={16} /></Tool>
+            <span className="mx-1 h-5 w-px bg-slate-200" />
+            <Tool onClick={onAnnotate} label="Box what needs to change and send it to the agent (A)" shortcut="Annotate"><SquareDashedMousePointer size={16} className="text-orange-500" /></Tool>
             <span className="mx-1 h-5 w-px bg-slate-200" />
           </>
         )}

@@ -5,6 +5,7 @@ import { api } from './api/client';
 import { subscribe } from './api/events';
 import type { Identity } from './auth';
 import { Button, Empty, Field, Input, Modal, Textarea, useConfirm, useToast } from './components/ui';
+import { embeddingHost } from './editor/annotate/message';
 import { Editor } from './editor/Editor';
 import { Sidebar } from './Sidebar';
 
@@ -19,6 +20,7 @@ export function App({ identity, signOut }: { identity: Identity; signOut: () => 
   const [flows, setFlows] = useState<GraphSummary[] | null>(null);
   const [current, setCurrent] = useState(routeId);
   const [creating, setCreating] = useState(false);
+  const [hostOrigin] = useState(() => embeddingHost(identity.embedOrigins));
 
   const reload = () => api.listGraphs().then(setFlows, fail);
 
@@ -46,7 +48,7 @@ export function App({ identity, signOut }: { identity: Identity; signOut: () => 
       <Sidebar flows={flows} current={current} identity={identity} onCreate={() => setCreating(true)} onArchive={archive} onSignOut={signOut} />
 
       {current ? (
-        <Editor key={current} graphId={current} onGone={() => navigate(null)} />
+        <Editor key={current} graphId={current} hostOrigin={hostOrigin} onGone={() => navigate(null)} />
       ) : (
         <main className="grid flex-1 place-items-center bg-slate-50">
           <Empty icon={<Workflow size={20} />} title="Choose a flow">

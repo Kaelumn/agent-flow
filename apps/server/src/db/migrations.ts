@@ -101,6 +101,29 @@ const migrations: Record<string, Migration> = {
       }
     },
   },
+  // Canvas annotations go straight to the agent's conversation; nothing is stored any more.
+  '0002_drop_feedback': {
+    async up(db: Kysely<any>) {
+      await db.schema.dropTable('feedback').ifExists().execute();
+    },
+    async down(db: Kysely<any>) {
+      await db.schema
+        .createTable('feedback')
+        .addColumn('id', 'varchar(32)', (c) => c.primaryKey())
+        .addColumn('graph_id', 'varchar(32)', (c) => c.notNull())
+        .addColumn('node_id', 'varchar(64)')
+        .addColumn('kind', 'varchar(16)', (c) => c.notNull())
+        .addColumn('text', 'text', (c) => c.notNull())
+        .addColumn('author', 'varchar(128)', (c) => c.notNull())
+        .addColumn('status', 'varchar(16)', (c) => c.notNull())
+        .addColumn('answer', 'text')
+        .addColumn('answered_by', 'varchar(128)')
+        .addColumn('created_at', 'bigint', (c) => c.notNull())
+        .addColumn('updated_at', 'bigint', (c) => c.notNull())
+        .execute();
+      await db.schema.createIndex('feedback_graph_status').on('feedback').columns(['graph_id', 'status']).execute();
+    },
+  },
 };
 
 export async function migrateToLatest(db: Database) {

@@ -1,6 +1,4 @@
 import type {
-  Feedback,
-  FeedbackKind,
   Graph,
   GraphEvent,
   GraphOp,
@@ -11,7 +9,7 @@ import type {
   RunStep,
   ToolDefinition,
 } from '@agent-flow/core';
-import { getToken } from '../auth';
+import { getToken, type Identity } from '../auth';
 
 export type GraphWithIssues = Graph & { issues: Issue[] };
 export type VersionSummary = Omit<GraphVersion, 'doc'>;
@@ -43,7 +41,7 @@ async function request<T>(method: string, path: string, body?: unknown, token = 
 }
 
 export const api = {
-  me: (token?: string) => request<{ workspaceId: string; actor: string }>('GET', '/me', undefined, token),
+  me: (token?: string) => request<Identity>('GET', '/me', undefined, token),
   tools: () => request<ToolDefinition[]>('GET', '/tools'),
 
   listGraphs: () => request<GraphSummary[]>('GET', '/graphs'),
@@ -59,10 +57,6 @@ export const api = {
   version: (id: string, version: number) => request<GraphVersion>('GET', `/graphs/${id}/versions/${version}`),
   restore: (id: string, version: number) => request<GraphWithIssues>('POST', `/graphs/${id}/versions/${version}/restore`),
   history: (id: string) => request<GraphEvent[]>('GET', `/graphs/${id}/history`),
-
-  feedback: (id: string) => request<Feedback[]>('GET', `/graphs/${id}/feedback`),
-  addFeedback: (id: string, input: { nodeId: string | null; kind: FeedbackKind; text: string }) => request<Feedback>('POST', `/graphs/${id}/feedback`, input),
-  setFeedbackStatus: (id: string, status: 'open' | 'resolved') => request<Feedback>('POST', `/feedback/${id}/status`, { status }),
 
   runs: (graphId: string) => request<Run[]>('GET', `/graphs/${graphId}/runs`),
   run: (id: string) => request<{ run: Run; steps: RunStep[] }>('GET', `/runs/${id}`),

@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { hostPage } from './host.js';
 import { Tenant } from './tenant.js';
 import { buildServers, type CallLog } from './tools.js';
 
@@ -10,9 +11,11 @@ import { buildServers, type CallLog } from './tools.js';
  *   GET  /log     every tool call so far          (for test verification, not for agents)
  *   GET  /state   the tenant's current data
  *   POST /reset   back to the fixtures
+ *   GET  /host?flow=<id>   a mock MSPbots conversation embedding the canvas (CANVAS_URL, default http://localhost:5173)
  */
 const spec = process.argv[2] ?? process.env.PORT ?? '4100';
 const [from, to = from] = spec.split('-').map(Number);
+const canvasUrl = process.env.CANVAS_URL ?? 'http://localhost:5173';
 
 for (let port = from!; port <= to!; port++) {
   let tenant = new Tenant();
@@ -24,6 +27,7 @@ for (let port = from!; port <= to!; port++) {
 
     if (req.method === 'GET' && url.pathname === '/log') return json(200, log);
     if (req.method === 'GET' && url.pathname === '/state') return json(200, tenant);
+    if (req.method === 'GET' && url.pathname === '/host') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(hostPage(`${canvasUrl}/#/flows/${encodeURIComponent(url.searchParams.get('flow') ?? '')}`));
     if (req.method === 'POST' && url.pathname === '/reset') {
       tenant = new Tenant();
       log = [];

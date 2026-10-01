@@ -35,20 +35,6 @@ export interface GraphEventsTable {
   created_at: Millis;
 }
 
-export interface FeedbackTable {
-  id: string;
-  graph_id: string;
-  node_id: string | null;
-  kind: string;
-  text: string;
-  author: string;
-  status: string;
-  answer: string | null;
-  answered_by: string | null;
-  created_at: Millis;
-  updated_at: Millis;
-}
-
 export interface RunsTable {
   id: string;
   workspace_id: string;
@@ -82,7 +68,6 @@ export interface DB {
   graphs: GraphsTable;
   graph_versions: GraphVersionsTable;
   graph_events: GraphEventsTable;
-  feedback: FeedbackTable;
   runs: RunsTable;
   run_steps: RunStepsTable;
 }
