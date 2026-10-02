@@ -21,6 +21,8 @@ type Tab = 'inspect' | 'issues' | 'versions' | 'runs';
 
 /** Uncovered canvas narrower than this gets the icon-only toolbar. */
 const COMPACT_WIDTH = 560;
+/** Rail, minimap and the icon-only toolbar side by side. */
+const MINIMAP_MIN_WIDTH = 540;
 
 interface Props {
   graphId: string;
@@ -75,8 +77,8 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
   const trace = useMemo(() => (runDetail ? traceOf(runDetail) : null), [runDetail]);
   const narrow = size.width < NARROW_WIDTH;
   const insets = dockInsets(!!panel && !annotating, narrow, size.height);
-  // The minimap sits where the open card would cover it, and is too much on a phone-width canvas.
-  const minimap = !narrow && (!panel || annotating);
+  // The minimap sits where the open panel would cover it, and needs the room of the icon-only toolbar beside it.
+  const minimap = size.width >= MINIMAP_MIN_WIDTH && (!panel || annotating);
 
   /** Centres a node in the part of the canvas the dock leaves free; `opening` when the dock is about to open for it. */
   const focusNode = (id: string, opening = false) => {
