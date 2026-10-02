@@ -23,3 +23,15 @@ export interface ToolDefinition {
 }
 
 export type ToolLookup = (name: string) => ToolDefinition | undefined;
+
+/** A skill an agent can load to carry out a step, as listed by the MSPbots platform. */
+export interface SkillDefinition {
+  name: string;
+  description: string;
+}
+
+/** What the validator looks names up in. */
+export interface Catalog {
+  tool: ToolLookup;
+  skill: (name: string) => SkillDefinition | undefined;
+}

@@ -15,7 +15,7 @@
 | 概念 | 说明 |
 |---|---|
 | Graph | 一个 SOP 流程，有一份可编辑的**草稿**（draft）和多个不可变的**版本**（version） |
-| Node | `start` / `tool` / `end`。`tool` 节点绑定工具目录中的一个工具，附带给 agent 的指引、参数来源说明、输出键名和失败策略 |
+| Node | `start` / `tool` / `end`。`tool` 节点即“步骤”，三种执行方式选一：调用工具目录中的一个工具、按 MSPbots 的某个 skill 执行，或都不选、由 agent 按指引自己完成（分类、提取、起草）。附带指引、参数来源、输出键名、期望输出字段（只作提示，不强制）和失败策略 |
 | Edge | `source → target`，带自然语言 `condition`，由 agent 判断；多条出边时最多一条 `default` |
 | Op | 对草稿的原子修改。REST 和 MCP 的所有写操作都转成 Op，走同一条写入路径（校验、乐观锁、历史、推送） |
 | Revision | 草稿的修订号，用于乐观锁，每次写入加 1；没有实际变化的写入不产生新修订，只改节点位置的写入不记入修改历史 |
@@ -23,6 +23,7 @@
 | Run | 基于某个版本的一次执行，记录当前节点、上下文（各节点输出）和每一步 |
 | Annotation | 审阅人在画布上画框圈出的问题和说明。无状态：不入库，发送后作为系统通知进入 MSPbots 对话，见[画布标注](integration/canvas-annotations.md) |
 | Tool Catalog | 可用工具及其参数 schema。从配置的 MCP 服务实时读取（服务名即系统名，`readOnlyHint` 决定是否写入），或从静态 JSON 读取（测试和离线开发用） |
+| Skill Catalog | 步骤可选用的 skill（名称和说明），从 `SKILLS_URL` 定时读取。MSPbots 平台接口接入前由 mock-msp 的 `/skills` 提供 |
 
 ## 3. 校验规则
 

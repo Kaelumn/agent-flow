@@ -1,26 +1,34 @@
-import type { FlowNode, GraphDoc, InputParam, Issue, NodePatch, OnError, ToolDefinition } from '@agent-flow/core';
-import { AlertCircle, AlertTriangle, CircleCheck, CircleMinus, CircleX, Copy, Play, Plus, Trash2, X } from 'lucide-react';
+import type { FlowNode, GraphDoc, InputParam, Issue, NodePatch, OnError, OutputField, SkillDefinition, ToolDefinition } from '@agent-flow/core';
+import { AlertCircle, AlertTriangle, Bot, CircleCheck, CircleMinus, CircleX, Copy, Play, Plus, Sparkles, Trash2, Wrench, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, cx, Field, IconButton, Input, Section, Segmented, Select, Switch, Textarea, useToast } from '../../components/ui';
-import { connectorStyle } from '../connectors';
+import { stepStyle } from '../connectors';
 import { availableRefs } from '../refs';
 import { RefInput } from './RefInput';
+import { SkillPicker } from './SkillPicker';
 import { ToolPicker } from './ToolPicker';
 
 interface Props {
   node: FlowNode;
   doc: GraphDoc;
   tools: ToolDefinition[];
+  skills: SkillDefinition[];
   issues: Issue[];
   onSave: (patch: NodePatch) => Promise<unknown>;
   onDelete: () => void;
 }
 
+/** How a step is carried out: a tool call, a skill, or the agent alone from the instruction. */
+type Mode = 'tool' | 'skill' | 'agent';
+
 type Draft = Required<Pick<FlowNode, 'title' | 'instruction'>> & {
   inputs: InputParam[];
+  mode: Mode;
   toolName: string;
   argsHint: Record<string, string>;
+  skillName: string;
   outputKey: string;
+  outputs: OutputField[];
   onError: OnError;
   outcome: NonNullable<FlowNode['outcome']>;
 };
@@ -29,9 +37,12 @@ const toDraft = (n: FlowNode): Draft => ({
   title: n.title,
   instruction: n.instruction,
   inputs: n.inputs ?? [],
+  mode: n.tool ? 'tool' : n.skill ? 'skill' : 'agent',
   toolName: n.tool?.name ?? '',
   argsHint: n.tool?.argsHint ?? {},
+  skillName: n.skill?.name ?? '',
   outputKey: n.outputKey ?? '',
+  outputs: n.outputs ?? [],
   onError: n.onError ?? { strategy: 'stop' },
   outcome: n.outcome ?? 'completed',
 });
@@ -42,16 +53,25 @@ function toPatch(node: FlowNode, d: Draft): NodePatch {
   if (node.type === 'end') patch.outcome = d.outcome;
   if (node.type === 'tool') {
     const argsHint = Object.fromEntries(Object.entries(d.argsHint).filter(([, v]) => v.trim()));
-    patch.tool = d.toolName ? { name: d.toolName, argsHint } : null;
+    patch.tool = d.mode === 'tool' && d.toolName ? { name: d.toolName, argsHint } : null;
+    patch.skill = d.mode === 'skill' && d.skillName ? { name: d.skillName } : null;
     patch.outputKey = d.outputKey.trim() || null;
+    const outputs = d.outputs.filter((f) => f.name.trim()).map((f) => ({ name: f.name.trim(), description: f.description }));
+    patch.outputs = outputs.length ? outputs : null;
     patch.onError = d.onError.strategy === 'stop' ? null : d.onError;
   }
   return patch;
 }
 
-const TYPE_LABEL = { start: 'Start', tool: 'Tool step', end: 'End' } as const;
+const TYPE_LABEL = { start: 'Start', tool: 'Step', end: 'End' } as const;
 
-export function NodePanel({ node, doc, tools, issues, onSave, onDelete }: Props) {
+const MODES: { value: Mode; label: React.ReactNode; hint: string }[] = [
+  { value: 'tool', label: <><Wrench size={13} />Tool</>, hint: 'The agent calls one tool from the catalog.' },
+  { value: 'skill', label: <><Sparkles size={13} />Skill</>, hint: 'The agent loads a platform skill and follows it.' },
+  { value: 'agent', label: <><Bot size={13} />Agent</>, hint: 'No tool: the agent does the step itself from the instruction, for example classifying, extracting or drafting.' },
+];
+
+export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }: Props) {
   const { notify } = useToast();
   const [draft, setDraft] = useState(() => toDraft(node));
   const [saving, setSaving] = useState(false);
@@ -61,6 +81,7 @@ export function NodePanel({ node, doc, tools, issues, onSave, onDelete }: Props)
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const dirty = JSON.stringify(toDraft(node)) !== JSON.stringify(draft);
   const tool = tools.find((t) => t.name === draft.toolName);
+  const skill = skills.find((s) => s.name === draft.skillName);
   const refs = availableRefs(doc, node.id);
 
   const save = async () => {
@@ -72,7 +93,7 @@ export function NodePanel({ node, doc, tools, issues, onSave, onDelete }: Props)
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <PanelHeader node={node} tool={tool} onCopyId={() => navigator.clipboard.writeText(node.id).then(() => notify(`Copied "${node.id}"`))} />
+        <PanelHeader node={node} tool={tools.find((t) => t.name === node.tool?.name)} onCopyId={() => navigator.clipboard.writeText(node.id).then(() => notify(`Copied "${node.id}"`))} />
         {issues.length > 0 && <NodeIssues issues={issues} />}
 
         <Section title="Step">
@@ -107,12 +128,16 @@ export function NodePanel({ node, doc, tools, issues, onSave, onDelete }: Props)
 
         {node.type === 'tool' && (
           <>
-            <Section title="Tool">
-              <ToolPicker tools={tools} value={draft.toolName} onChange={(name) => set('toolName', name)} />
-              {tool && <p className="text-[12px] leading-relaxed text-slate-500">{tool.description}</p>}
+            <Section title="Carried out with">
+              <Segmented value={draft.mode} onChange={(mode) => set('mode', mode)} options={MODES} />
+              {draft.mode === 'tool' && <ToolPicker tools={tools} value={draft.toolName} onChange={(name) => set('toolName', name)} />}
+              {draft.mode === 'skill' && <SkillPicker skills={skills} value={draft.skillName} onChange={(name) => set('skillName', name)} />}
+              <p className="text-[12px] leading-relaxed text-slate-500">
+                {draft.mode === 'tool' && tool ? tool.description : draft.mode === 'skill' && skill ? skill.description : MODES.find((m) => m.value === draft.mode)!.hint}
+              </p>
             </Section>
 
-            {tool && (
+            {draft.mode === 'tool' && tool && (
               <Section title="Arguments" action={<span className="text-[11px] text-slate-400">{Object.keys(tool.inputSchema.properties).length} parameters</span>}>
                 <ArgsEditor tool={tool} value={draft.argsHint} refs={refs} onChange={(v) => set('argsHint', v)} />
               </Section>
@@ -122,9 +147,10 @@ export function NodePanel({ node, doc, tools, issues, onSave, onDelete }: Props)
               <Field label="Save the result as" hint="Later steps use it as {{name.field}}. Leave empty if nothing needs it.">
                 <Input value={draft.outputKey} onChange={(e) => set('outputKey', e.target.value)} placeholder="e.g. new_user" className="font-mono" />
               </Field>
+              <OutputsEditor outputs={draft.outputs} onChange={(v) => set('outputs', v)} />
             </Section>
 
-            <Section title="If the tool fails">
+            <Section title="If the step fails">
               <Segmented
                 value={draft.onError.strategy}
                 onChange={(strategy) => set('onError', { strategy, targetNodeId: draft.onError.targetNodeId })}
@@ -163,7 +189,7 @@ export function NodePanel({ node, doc, tools, issues, onSave, onDelete }: Props)
 }
 
 function PanelHeader({ node, tool, onCopyId }: { node: FlowNode; tool?: ToolDefinition; onCopyId: () => void }) {
-  const style = connectorStyle(tool?.connector);
+  const style = stepStyle(node, tool);
   const Icon = node.type === 'start' ? Play : node.type === 'end' ? CircleCheck : style.icon;
   const tile = node.type === 'start' ? 'bg-emerald-500 text-white ring-emerald-500' : node.type === 'end' ? 'bg-slate-100 text-slate-500 ring-slate-200' : style.tile;
   return (
@@ -172,7 +198,7 @@ function PanelHeader({ node, tool, onCopyId }: { node: FlowNode; tool?: ToolDefi
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-semibold text-slate-900">{node.title}</div>
         <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500">
-          <span>{TYPE_LABEL[node.type]}{tool && ` · ${style.label}`}</span>
+          <span>{TYPE_LABEL[node.type]}{node.type === 'tool' && ` · ${style.label}`}</span>
           <button type="button" onClick={onCopyId} title="Copy node id" className="flex items-center gap-1 rounded px-1 font-mono text-slate-400 hover:bg-slate-100 hover:text-slate-600">
             {node.id}<Copy size={10} />
           </button>
@@ -253,5 +279,24 @@ function InputsEditor({ inputs, onChange }: { inputs: InputParam[]; onChange: (v
       ))}
       <Button size="sm" onClick={() => onChange([...inputs, { name: '', description: '', required: true }])}><Plus size={13} />Add input</Button>
     </div>
+  );
+}
+
+/** Fields the result should contain. They guide the agent and fill {{reference}} suggestions; nothing checks them. */
+function OutputsEditor({ outputs, onChange }: { outputs: OutputField[]; onChange: (v: OutputField[]) => void }) {
+  const update = (i: number, patch: Partial<OutputField>) => onChange(outputs.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  return (
+    <Field label="Expected fields" hint="Optional. Tells the agent what to produce and suggests these fields when later steps insert a reference. Nothing is enforced.">
+      <div className="space-y-2">
+        {outputs.map((field, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Input value={field.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="field" className="h-8 w-32 shrink-0 font-mono text-[12.5px]" />
+            <Input value={field.description} onChange={(e) => update(i, { description: e.target.value })} placeholder="What it holds" className="h-8 min-w-0 text-[12.5px]" />
+            <IconButton label="Remove field" onClick={() => onChange(outputs.filter((_, j) => j !== i))}><X size={14} /></IconButton>
+          </div>
+        ))}
+        <Button size="sm" onClick={() => onChange([...outputs, { name: '', description: '' }])}><Plus size={13} />Add field</Button>
+      </div>
+    </Field>
   );
 }

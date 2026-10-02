@@ -266,6 +266,7 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
                 node={selectedNode}
                 doc={doc}
                 tools={flow.tools}
+                skills={flow.skills}
                 issues={graph.issues.filter((i) => i.nodeId === selectedNode.id)}
                 onSave={(patch) => edit([{ op: 'updateNode', nodeId: selectedNode.id, patch }])}
                 onDelete={() => remove([{ kind: 'node', id: selectedNode.id }])}

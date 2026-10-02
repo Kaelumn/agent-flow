@@ -34,7 +34,8 @@ beforeAll(async () => {
   const config = loadConfig({ ...process.env, AUTH_TOKENS: `${AGENT}:${workspace}:agent,${WEB}:${workspace}:felix`, LOG_LEVEL: 'warn' });
   db = await createDatabase(config);
   await migrateToLatest(db);
-  const services = createServices(db, await StaticToolCatalog.fromFile(config.TOOL_CATALOG_PATH));
+  const skills = [{ name: 'classify-ticket', description: 'Sort a ticket into a category' }];
+  const services = createServices(db, await StaticToolCatalog.fromFile(config.TOOL_CATALOG_PATH), { list: () => skills, get: (name) => skills.find((s) => s.name === name) });
   app = await buildApp({ config, db, services, authenticate: tokenAuthenticator(config.AUTH_TOKENS) });
   base = await app.listen({ host: '127.0.0.1', port: 0 });
   client = new Client({ name: 'e2e', version: '1' });
@@ -138,5 +139,38 @@ describe('agent builds and runs a flow over MCP', () => {
     const { run } = await call('run_start', { flowId, inputs: { upn: 'x@contoso.com' } });
     const failed = await call('run_submit', { runId: run.id, nodeId: 'check', outcome: { status: 'failed', error: 'Graph 503' } });
     expect([failed.run.status, failed.run.currentNodeId]).toEqual(['failed', 'check']);
+  });
+
+  it('runs steps that follow a skill or only the agent, and passes their results on', async () => {
+    expect((await call<{ name: string }[]>('skills_search', { query: 'category' })).map((s) => s.name)).toEqual(['classify-ticket']);
+    const { flowId: id } = await call('flow_create', { title: 'Triage', description: 'e2e' });
+    await call('flow_update_node', { flowId: id, nodeId: 'start', patch: { inputs: [{ name: 'text', description: 'Ticket text' }] } });
+    const added = await call('flow_add_nodes', {
+      flowId: id,
+      nodes: [
+        { id: 'classify', type: 'tool', title: 'Classify', skill: { name: 'classify-ticket' }, outputKey: 'kind', outputs: [{ name: 'category' }] },
+        { id: 'reply', type: 'tool', title: 'Draft a reply', instruction: 'Write two sentences for a {{kind.category}} ticket about: {{input.text}}', outputKey: 'draft' },
+      ],
+    });
+    expect(added.issues).toEqual([]);
+    const wired = await call('flow_add_edges', {
+      flowId: id,
+      edges: [{ source: 'start', target: 'classify' }, { source: 'classify', target: 'reply' }, { source: 'reply', target: 'end' }],
+    });
+    expect([wired.issues, wired.unfinished]).toEqual([[], undefined]);
+    await call('flow_publish', { flowId: id });
+
+    const first = await call('run_start', { flowId: id, inputs: { text: 'Printer on floor 2 is offline' } });
+    expect([first.tool, first.skill.name, first.node.outputs]).toEqual([null, 'classify-ticket', [{ name: 'category', description: '' }]]);
+    expect(first.guide).toContain('Load skill "classify-ticket"');
+
+    const second = await call('run_submit', { runId: first.run.id, nodeId: 'classify', outcome: { status: 'succeeded', result: { category: 'hardware' } } });
+    expect([second.tool, second.skill]).toEqual([null, null]);
+    expect(second.node.instruction).toBe('Write two sentences for a hardware ticket about: Printer on floor 2 is offline');
+    expect(second.guide).toContain('Carry out this step yourself');
+
+    // Whatever the agent reports is taken as it is: nothing checks it against the listed fields.
+    const done = await call('run_submit', { runId: first.run.id, nodeId: 'reply', outcome: { status: 'succeeded', result: 'Thanks, we are on it.' } });
+    expect([done.run.status, done.context]).toEqual(['completed', { kind: { category: 'hardware' }, draft: 'Thanks, we are on it.' }]);
   });
 });

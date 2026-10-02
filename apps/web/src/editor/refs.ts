@@ -24,8 +24,12 @@ export function availableRefs(doc: GraphDoc, nodeId: string): AvailableRef[] {
 
   const start = doc.nodes.find((n) => n.type === 'start');
   const inputs = (start?.inputs ?? []).map((i) => ({ ref: `{{input.${i.name}}}`, caretBack: 0, label: i.name, source: 'Run input' }));
+  // A step's listed output fields come first; the bare key still lets you name any other field.
   const results = doc.nodes
     .filter((n) => before.has(n.id) && n.outputKey)
-    .map((n) => ({ ref: `{{${n.outputKey}.}}`, caretBack: 2, label: n.outputKey!, source: n.title }));
+    .flatMap((n) => [
+      ...(n.outputs ?? []).map((f) => ({ ref: `{{${n.outputKey}.${f.name}}}`, caretBack: 0, label: `${n.outputKey}.${f.name}`, source: f.description || n.title })),
+      { ref: `{{${n.outputKey}.}}`, caretBack: 2, label: n.outputKey!, source: n.title },
+    ]);
   return [...inputs, ...results];
 }

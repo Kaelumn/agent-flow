@@ -3,7 +3,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { AlertCircle, AlertTriangle, Check, CircleCheck, CircleMinus, CircleX, CornerDownRight, Minus, PenLine, Play, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cx } from '../../components/ui';
-import { connectorStyle } from '../connectors';
+import { stepStyle } from '../connectors';
 import { nodeSize } from '../layout';
 
 export type RunMark = StepStatus | 'current';
@@ -71,7 +71,7 @@ const Tag = ({ className, title, icon, children }: { className: string; title?: 
 
 function ToolNode({ data, selected }: NodeProps<CanvasNode>) {
   const { node, tool } = data;
-  const style = connectorStyle(tool?.connector);
+  const style = stepStyle(node, tool);
   const Icon = style.icon;
   const onError = node.onError?.strategy ?? 'stop';
   const hasErrors = data.issues.some((i) => i.severity === 'error');
@@ -90,8 +90,8 @@ function ToolNode({ data, selected }: NodeProps<CanvasNode>) {
             <Signals issues={data.issues} />
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-slate-500">
-            <span className="shrink-0">{tool ? style.label : 'No tool'}</span>
-            {node.tool && <span className="truncate font-mono text-slate-400">· {node.tool.name}</span>}
+            <span className="shrink-0">{style.label}</span>
+            {style.detail && <span className="truncate font-mono text-slate-400">· {style.detail}</span>}
           </div>
         </div>
       </div>

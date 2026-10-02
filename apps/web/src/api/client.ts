@@ -7,6 +7,7 @@ import type {
   Issue,
   Run,
   RunStep,
+  SkillDefinition,
   ToolDefinition,
 } from '@agent-flow/core';
 import { getToken, type Identity } from '../auth';
@@ -43,6 +44,7 @@ async function request<T>(method: string, path: string, body?: unknown, token = 
 export const api = {
   me: (token?: string) => request<Identity>('GET', '/me', undefined, token),
   tools: () => request<ToolDefinition[]>('GET', '/tools'),
+  skills: () => request<SkillDefinition[]>('GET', '/skills'),
 
   listGraphs: () => request<GraphSummary[]>('GET', '/graphs'),
   createGraph: (meta: { title: string; description?: string }) => request<GraphWithIssues>('POST', '/graphs', meta),

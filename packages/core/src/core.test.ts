@@ -10,7 +10,8 @@ const tools: ToolDefinition[] = [
     inputSchema: { type: 'object', properties: { upn: { type: 'string' } }, required: ['upn'] },
   },
 ];
-const lookup = (name: string) => tools.find((t) => t.name === name);
+const skills = [{ name: 'classify-ticket', description: 'Sort a ticket into a category' }];
+const lookup = { tool: (name: string) => tools.find((t) => t.name === name), skill: (name: string) => skills.find((s) => s.name === name) };
 
 let seq = 0;
 const genId = (prefix: string) => `${prefix}${++seq}`;
@@ -53,6 +54,16 @@ describe('validateGraph', () => {
     expect(issues.filter((i) => !isUnfinished(i)).map((i) => i.code)).toEqual(['tool_unknown']);
   });
 
+  it('takes steps that use a skill or only the agent', () => {
+    const step = (patch: object) => validateGraph(applyOps(build(), [{ op: 'updateNode', nodeId: 'check', patch: { tool: null, ...patch } }], genId).doc, lookup).map((i) => i.code);
+    expect(step({ skill: { name: 'classify-ticket' } })).toEqual([]);
+    expect(step({ instruction: 'Decide whether the ticket is a password reset' })).toEqual([]);
+    expect(step({ instruction: '' })).toEqual(['instruction_missing']);
+    expect(step({ skill: { name: 'made-up' } })).toEqual(['skill_unknown']);
+    expect(step({ tool: { name: 'check_user', argsHint: { upn: 'x' } }, skill: { name: 'classify-ticket' } })).toEqual(['tool_and_skill']);
+    expect(step({ skill: { name: 'classify-ticket' }, outputKey: null, outputs: [{ name: 'category' }] })).toEqual(['outputs_without_key']);
+  });
+
   it('flags unknown tool parameters', () => {
     const doc = applyOps(build(), [
       { op: 'updateNode', nodeId: 'check', patch: { tool: { name: 'check_user', argsHint: { email: 'x' } } } },
@@ -90,8 +101,8 @@ describe('resolveTransition', () => {
     expect(() => resolveTransition(doc, 'start', { nodeId: 'check', outcome: ok })).toThrow(/run is at node/);
   });
 
-  it('requires a tool outcome and a choice at branches', () => {
-    expect(() => resolveTransition(doc, 'check', { nodeId: 'check' })).toThrow(/report the tool outcome/);
+  it('requires an outcome and a choice at branches', () => {
+    expect(() => resolveTransition(doc, 'check', { nodeId: 'check' })).toThrow(/report its outcome/);
     expect(() => resolveTransition(doc, 'check', { nodeId: 'check', outcome: ok })).toThrow(/choose edgeId/);
     expect(() => resolveTransition(doc, 'check', { nodeId: 'check', outcome: ok, edgeId: 'e1' })).toThrow(/does not leave/);
   });
@@ -128,8 +139,10 @@ describe('change summaries', () => {
 });
 
 describe('references', () => {
-  const lookup2 = (name: string) =>
-    ({ name, connector: 't', description: '', writes: false, inputSchema: { type: 'object' as const, properties: { upn: { type: 'string' }, id: { type: 'string' } } } });
+  const lookup2 = {
+    tool: (name: string) => ({ name, connector: 't', description: '', writes: false, inputSchema: { type: 'object' as const, properties: { upn: { type: 'string' }, id: { type: 'string' } } } }),
+    skill: () => undefined,
+  };
   const doc = applyOps({ nodes: [], edges: [] }, [
     {
       op: 'addNodes',

@@ -1,6 +1,7 @@
 import { loadConfig } from '../config.js';
 import { createServices } from '../container.js';
 import { createDatabase } from '../db/database.js';
+import { loadSkillCatalog } from '../services/skill-catalog.js';
 import { loadToolCatalog } from '../services/tool-catalog.js';
 import { onboardingTemplate } from './templates/onboarding.js';
 
@@ -11,7 +12,7 @@ const principal = { workspaceId: identity!.workspaceId, actor: 'seed', source: '
 
 const db = await createDatabase(config);
 try {
-  const { graphs } = createServices(db, await loadToolCatalog(config));
+  const { graphs } = createServices(db, await loadToolCatalog(config), await loadSkillCatalog(config));
   const existing = await graphs.list(principal);
 
   for (const template of [onboardingTemplate]) {

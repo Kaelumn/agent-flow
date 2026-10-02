@@ -1,4 +1,5 @@
-import { Cloud, MessagesSquare, Ticket, Wrench, type LucideIcon } from 'lucide-react';
+import type { FlowNode, ToolDefinition } from '@agent-flow/core';
+import { Bot, Cloud, MessagesSquare, Sparkles, Ticket, Wrench, type LucideIcon } from 'lucide-react';
 
 export interface ConnectorStyle {
   label: string;
@@ -18,3 +19,13 @@ const FALLBACK: ConnectorStyle = { label: 'Tool', icon: Wrench, tile: 'bg-slate-
 
 export const connectorStyle = (connector?: string): ConnectorStyle =>
   connector ? (STYLES[connector] ?? { ...FALLBACK, label: connector }) : FALLBACK;
+
+const SKILL: ConnectorStyle = { label: 'Skill', icon: Sparkles, tile: 'bg-fuchsia-50 text-fuchsia-600 ring-fuchsia-100' };
+const AGENT: ConnectorStyle = { label: 'Agent', icon: Bot, tile: 'bg-indigo-50 text-indigo-600 ring-indigo-100' };
+
+/** How a step is shown: the tool's system, a skill, or the agent working from the instruction alone. */
+export function stepStyle(node: Pick<FlowNode, 'tool' | 'skill'>, tool?: ToolDefinition): ConnectorStyle & { detail?: string } {
+  if (node.tool) return { ...connectorStyle(tool?.connector), detail: node.tool.name };
+  if (node.skill) return { ...SKILL, detail: node.skill.name };
+  return AGENT;
+}

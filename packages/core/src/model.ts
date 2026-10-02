@@ -26,6 +26,17 @@ export const ToolBinding = z.object({
 });
 export type ToolBinding = z.infer<typeof ToolBinding>;
 
+/** A skill from the MSPbots platform that the agent loads and follows to carry out a step. */
+export const SkillBinding = z.object({ name: z.string().min(1) });
+export type SkillBinding = z.infer<typeof SkillBinding>;
+
+/** A field a step is expected to produce. A hint for the agent and for {{reference}} completion, never enforced. */
+export const OutputField = z.object({
+  name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'field names are letters, digits and "_"'),
+  description: z.string().default(''),
+});
+export type OutputField = z.infer<typeof OutputField>;
+
 export const OnError = z.object({
   strategy: z.enum(['stop', 'continue', 'goto']),
   targetNodeId: Id.optional(),
@@ -40,11 +51,17 @@ export const FlowNode = z.object({
   instruction: z.string().default(''),
   /** start only: parameters the run must be started with. */
   inputs: z.array(InputParam).optional(),
-  /** tool only. */
+  /**
+   * Steps (type "tool") call a tool, follow a skill, or neither: then the agent does the step itself from the
+   * instruction (classify, extract, draft). At most one of tool and skill.
+   */
   tool: ToolBinding.optional(),
-  /** tool only: key under which the tool result is stored in the run context. */
+  skill: SkillBinding.optional(),
+  /** steps only: key under which the step's result is stored in the run context. */
   outputKey: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional(),
-  /** tool only: defaults to stop. */
+  /** steps only: what the result is expected to contain. */
+  outputs: z.array(OutputField).optional(),
+  /** steps only: defaults to stop. */
   onError: OnError.optional(),
   /** end only: final run status. */
   outcome: EndOutcome.optional(),

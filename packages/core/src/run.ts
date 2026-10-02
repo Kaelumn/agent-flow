@@ -12,7 +12,7 @@ export interface Run {
   status: RunStatus;
   currentNodeId: string | null;
   inputs: Record<string, unknown>;
-  /** Tool results keyed by each node's outputKey. */
+  /** Step results keyed by each node's outputKey. */
   context: Record<string, unknown>;
   startedBy: string;
   createdAt: number;
@@ -20,7 +20,7 @@ export interface Run {
   endedAt: number | null;
 }
 
-/** passed: a node without a tool. skipped: the agent could not call the tool (e.g. missing data) and said why. */
+/** passed: the start node. skipped: the agent could not carry out the step (e.g. missing data) and said why. */
 export type StepStatus = 'succeeded' | 'failed' | 'skipped' | 'passed';
 
 export interface RunStep {
@@ -42,7 +42,7 @@ export const ToolOutcome = z
     status: z.enum(['succeeded', 'failed', 'skipped']),
     args: z.record(z.string(), z.unknown()).optional(),
     result: z.unknown().optional(),
-    /** The tool's error, or why the tool was not called. */
+    /** What went wrong, or why the step was not carried out. */
     error: z.string().optional(),
   })
   .refine((o) => o.status === 'succeeded' || !!o.error?.trim(), { message: 'a failed or skipped outcome needs an error explaining why', path: ['error'] });
@@ -72,7 +72,7 @@ export function resolveTransition(
 
   let stepStatus: StepStatus = 'passed';
   if (node.type === 'tool') {
-    if (!submission.outcome) throw new OpError('invalid', `"${node.title}" is a tool step: report the tool outcome`);
+    if (!submission.outcome) throw new OpError('invalid', `"${node.title}" is a step: report its outcome`);
     stepStatus = submission.outcome.status;
     // A step that could not run is handled like a failed one.
     if (stepStatus !== 'succeeded') {
@@ -85,7 +85,7 @@ export function resolveTransition(
       }
     }
   } else if (submission.outcome) {
-    throw new OpError('invalid', `"${node.title}" is not a tool step and takes no outcome`);
+    throw new OpError('invalid', `"${node.title}" is not a step and takes no outcome`);
   }
 
   const outs = outgoingEdges(doc, node.id);

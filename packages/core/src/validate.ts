@@ -1,6 +1,6 @@
 import type { FlowEdge, FlowNode, GraphDoc } from './model.js';
 import { INPUT_ROOT, parseRefs } from './refs.js';
-import type { ToolLookup } from './tools.js';
+import type { Catalog } from './tools.js';
 
 export interface Issue {
   severity: 'error' | 'warning';
@@ -19,7 +19,7 @@ export const hasErrors = (issues: Issue[]) => issues.some((i) => i.severity === 
 const UNFINISHED = new Set(['end_missing', 'dead_end', 'unreachable', 'no_path_to_end', 'condition_missing', 'on_error_target', 'ref_unknown', 'ref_unavailable', 'ref_maybe_unavailable']);
 export const isUnfinished = (issue: Issue) => UNFINISHED.has(issue.code);
 
-export function validateGraph(doc: GraphDoc, lookupTool: ToolLookup): Issue[] {
+export function validateGraph(doc: GraphDoc, catalog: Catalog): Issue[] {
   const issues: Issue[] = [];
   const error = (code: string, message: string, ref: Pick<Issue, 'nodeId' | 'edgeId'> = {}) =>
     issues.push({ severity: 'error', code, message, ...ref });
@@ -63,8 +63,8 @@ export function validateGraph(doc: GraphDoc, lookupTool: ToolLookup): Issue[] {
       if (outs.filter((e) => e.isDefault).length > 1) error('default_multiple', `"${node.title}" has more than one default edge`, ref);
     }
 
-    if (node.type === 'tool') validateToolNode(node, lookupTool, nodes, error, warn);
-    else if (node.tool || node.outputKey || node.onError) warn('tool_fields_ignored', `tool settings on ${node.type} node "${node.title}" are ignored`, ref);
+    if (node.type === 'tool') validateStep(node, catalog, nodes, error, warn);
+    else if (node.tool || node.skill || node.outputKey || node.outputs || node.onError) warn('tool_fields_ignored', `step settings on ${node.type} node "${node.title}" are ignored`, ref);
 
     if (node.outputKey) {
       const owner = outputKeys.get(node.outputKey);
@@ -93,18 +93,23 @@ export function validateGraph(doc: GraphDoc, lookupTool: ToolLookup): Issue[] {
   return issues;
 }
 
-function validateToolNode(
+function validateStep(
   node: FlowNode,
-  lookupTool: ToolLookup,
+  catalog: Catalog,
   nodes: Map<string, FlowNode>,
   error: (code: string, message: string, ref?: Pick<Issue, 'nodeId'>) => void,
   warn: (code: string, message: string, ref?: Pick<Issue, 'nodeId'>) => void,
 ) {
   const ref = { nodeId: node.id };
-  if (!node.tool) {
-    error('tool_missing', `"${node.title}" has no tool bound`, ref);
-  } else {
-    const def = lookupTool(node.tool.name);
+  if (node.tool && node.skill) error('tool_and_skill', `"${node.title}" uses both a tool and a skill; choose one`, ref);
+  if (node.skill && !catalog.skill(node.skill.name)) error('skill_unknown', `skill "${node.skill.name}" is not in the skill list`, ref);
+  if (!node.tool && !node.skill && !node.instruction.trim()) {
+    warn('instruction_missing', `"${node.title}" uses no tool or skill: say in the instruction what the agent should do`, ref);
+  }
+  if (node.outputs?.length && !node.outputKey) warn('outputs_without_key', `"${node.title}" lists output fields but does not save its result, so no later step can use them`, ref);
+
+  if (node.tool) {
+    const def = catalog.tool(node.tool.name);
     if (!def) {
       error('tool_unknown', `tool "${node.tool.name}" is not in the tool catalog`, ref);
     } else {

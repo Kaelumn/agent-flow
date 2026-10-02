@@ -9,6 +9,7 @@ import {
   type FlowNode,
   type GraphDoc,
   type Run,
+  type SkillDefinition,
   type ToolDefinition,
   type ToolOutcome,
 } from '@agent-flow/core';
@@ -18,6 +19,7 @@ import { newId } from '../common/ids.js';
 import type { Principal } from '../common/principal.js';
 import type { RunRepository } from '../repositories/run-repository.js';
 import type { GraphService } from './graph-service.js';
+import type { SkillCatalog } from './skill-catalog.js';
 import type { ToolCatalog } from './tool-catalog.js';
 
 export interface StepOption {
@@ -32,9 +34,11 @@ export interface StepView {
   /** Title and description carry the flow's fixed parameters (e.g. who to notify). */
   flow: { title: string; description: string };
   run: Pick<Run, 'id' | 'graphId' | 'version' | 'status' | 'currentNodeId'>;
-  node: Pick<FlowNode, 'id' | 'type' | 'title' | 'instruction' | 'outputKey' | 'onError'> | null;
+  node: Pick<FlowNode, 'id' | 'type' | 'title' | 'instruction' | 'outputKey' | 'outputs' | 'onError'> | null;
   /** argsHint with every {{reference}} replaced by its value; resolvedArgs holds hints that are exactly one reference. */
   tool: (ToolDefinition & { argsHint: Record<string, string>; resolvedArgs: Record<string, unknown> }) | null;
+  /** The skill to load and follow for this step, when it uses one. */
+  skill: SkillDefinition | null;
   /** References in the instruction or argsHint that the run cannot fill, with the reason. */
   unresolvedRefs: Unresolved[];
   options: StepOption[];
@@ -59,6 +63,7 @@ export class RunService {
     private readonly runs: RunRepository,
     private readonly graphs: GraphService,
     private readonly tools: ToolCatalog,
+    private readonly skills: SkillCatalog,
     private readonly events: EventBus,
   ) {}
 
@@ -163,7 +168,7 @@ export class RunService {
     const base = { flow: { title: graph.title, description: graph.description }, run: summary, inputs: run.inputs, context: run.context };
 
     if (isFinished(run.status) || !node) {
-      return { ...base, node: null, tool: null, options: [], unresolvedRefs: [], guide: `The run has ended with status "${run.status}". Nothing more to do.` };
+      return { ...base, node: null, tool: null, skill: null, options: [], unresolvedRefs: [], guide: `The run has ended with status "${run.status}". Nothing more to do.` };
     }
 
     const options = outgoingEdges(doc, node.id).map((e) => {
@@ -180,15 +185,18 @@ export class RunService {
     const instruction = fill(node.instruction);
     const argsHint = Object.fromEntries(Object.entries(node.tool?.argsHint ?? {}).map(([k, v]) => [k, fill(v)]));
     const tool = definition && node.tool ? { ...definition, argsHint, resolvedArgs: resolveArgs(node.tool.argsHint, run) } : null;
-    const { id, type, title, outputKey, onError } = node;
+    // A skill missing from the current list is still named, so the agent can look for it.
+    const skill = node.skill ? (this.skills.get(node.skill.name) ?? { name: node.skill.name, description: '' }) : null;
+    const { id, type, title, outputKey, outputs, onError } = node;
 
     return {
       ...base,
-      node: { id, type, title, instruction, outputKey, onError },
+      node: { id, type, title, instruction, outputKey, outputs, onError },
       tool,
+      skill,
       options,
       unresolvedRefs: unresolved,
-      guide: guideFor(node, tool, options, unresolved),
+      guide: guideFor(node, tool, skill, options, unresolved),
     };
   }
 
@@ -214,7 +222,7 @@ export class RunService {
   }
 }
 
-function guideFor(node: FlowNode, tool: StepView['tool'], options: StepOption[], unresolved: Unresolved[]): string {
+function guideFor(node: FlowNode, tool: StepView['tool'], skill: StepView['skill'], options: StepOption[], unresolved: Unresolved[]): string {
   const lines: string[] = [];
   if (unresolved.length) {
     lines.push(
@@ -223,20 +231,29 @@ function guideFor(node: FlowNode, tool: StepView['tool'], options: StepOption[],
     );
   }
   if (node.type === 'tool') {
-    lines.push(
-      tool
-        ? `Call tool "${tool.name}". Use resolvedArgs exactly as given; derive any other argument from argsHint, the run inputs and the context.`
-        : `Perform the step "${node.title}".`,
-      'Call it exactly once.',
-      `Then call run_submit with nodeId "${node.id}" and outcome {status: "succeeded", args, result}, {status: "failed", args, error} with the tool's error, or {status: "skipped", error} if you could not call it because data is missing (never guess).`,
-    );
+    if (tool) {
+      lines.push(
+        `Call tool "${tool.name}" exactly once. Use resolvedArgs exactly as given; derive any other argument from argsHint, the run inputs and the context.`,
+        `Then call run_submit with nodeId "${node.id}" and outcome {status: "succeeded", args, result}, {status: "failed", args, error} with the tool's error, or {status: "skipped", error} if you could not call it because data is missing (never guess).`,
+      );
+    } else {
+      lines.push(
+        skill
+          ? `Load skill "${skill.name}" and follow it to carry out this step as the instruction says.`
+          : `Carry out this step yourself as the instruction says; it calls no tool.`,
+        `Then call run_submit with nodeId "${node.id}" and outcome {status: "succeeded", result} with what the step produced, {status: "failed", error}, or {status: "skipped", error} if data it needs is missing (never guess).`,
+      );
+    }
+    if (node.outputs?.length) {
+      lines.push(`The result is expected to contain: ${node.outputs.map((f) => (f.description ? `${f.name} (${f.description})` : f.name)).join(', ')}. Leave out what you cannot determine rather than inventing it.`);
+    }
     const strategy = node.onError?.strategy ?? 'stop';
     lines.push(
       strategy === 'stop'
-        ? 'If the tool fails, report it: the run will stop.'
+        ? 'If the step fails, report it: the run will stop.'
         : strategy === 'goto'
-          ? `If the tool fails, report it: the run jumps to node "${node.onError?.targetNodeId}".`
-          : 'If the tool fails, report it and still choose the next edge: the run continues.',
+          ? `If the step fails, report it: the run jumps to node "${node.onError?.targetNodeId}".`
+          : 'If the step fails, report it and still choose the next edge: the run continues.',
     );
   } else {
     lines.push(`Call run_submit with nodeId "${node.id}" and no outcome.`);

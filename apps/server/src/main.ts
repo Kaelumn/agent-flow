@@ -3,12 +3,13 @@ import { loadConfig } from './config.js';
 import { createServices } from './container.js';
 import { createDatabase } from './db/database.js';
 import { tokenAuthenticator } from './http/auth.js';
+import { loadSkillCatalog } from './services/skill-catalog.js';
 import { loadToolCatalog } from './services/tool-catalog.js';
 
 const config = loadConfig();
 const db = await createDatabase(config);
-const tools = await loadToolCatalog(config);
-const app = await buildApp({ config, db, services: createServices(db, tools), authenticate: tokenAuthenticator(config.AUTH_TOKENS) });
+const [tools, skills] = await Promise.all([loadToolCatalog(config), loadSkillCatalog(config)]);
+const app = await buildApp({ config, db, services: createServices(db, tools, skills), authenticate: tokenAuthenticator(config.AUTH_TOKENS) });
 
 const shutdown = async (signal: string) => {
   app.log.info(`${signal} received, shutting down`);

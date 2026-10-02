@@ -13,9 +13,9 @@ import type { Authenticate } from './auth.js';
 const INSTRUCTIONS = `Agent Flow stores SOPs as flowcharts that you build with the user and then follow.
 
 Building a flow:
-1. tools_search to find real tool names and parameters. Never invent tool names.
+1. tools_search to find real tool names and parameters, skills_search for skills. Never invent either.
 2. flow_create, then flow_add_nodes / flow_add_edges. Give nodes readable ids (e.g. "check_user") so you can connect them in the same turn.
-3. Every node type is start, tool or end. Branches are edges with a natural-language condition; mark at most one edge per node as isDefault.
+3. Every node type is start, tool or end. A "tool" node is a step: it calls a tool, follows a skill, or neither (the agent does it from the instruction, e.g. classify, extract, draft). Use at most one of tool and skill. List what a step's result should contain in outputs; it guides the runner and is not enforced. Branches are edges with a natural-language condition; mark at most one edge per node as isDefault.
    In argsHint and instructions, refer to data with {{input.<name>}} for run inputs and {{<outputKey>.<field>}} for a result an earlier step saved with outputKey (e.g. {{new_user.id}}). The validator checks that such data exists and is produced before the step; the runner fills in the values. Give every step whose result is used later an outputKey. Keep free text only for values the agent must derive.
 4. Each edit returns "issues" that are wrong now (unknown tool, bad argument, ...): fix them right away. "unfinished" only counts gaps that close as you keep building (steps not yet connected, references to steps not yet added). When the flow is complete, flow_validate lists everything left; flow_publish once it has no errors.
 5. Reviewers annotate the canvas and the annotations arrive in the conversation as an "[Agent Flow] … annotations" notice listing node and edge ids and the draft revision they were written against. flow_get, apply each note to the draft, then summarise what you changed per annotation.
@@ -53,7 +53,7 @@ export async function mcpRoutes(app: FastifyInstance, { services, authenticate, 
   app.delete('/', async (_req, reply) => reply.code(405).send(notAllowed));
 }
 
-function buildServer({ graphs, runs, tools }: Services, p: Principal, canvasUrl: (flowId: string) => string | undefined, logError: (err: unknown) => void) {
+function buildServer({ graphs, runs, tools, skills }: Services, p: Principal, canvasUrl: (flowId: string) => string | undefined, logError: (err: unknown) => void) {
   const server = new McpServer({ name: 'agent-flow', version: '0.1.0' }, { instructions: INSTRUCTIONS });
 
   const tool = <S extends z.ZodRawShape>(name: string, description: string, inputSchema: S, handler: (args: z.infer<z.ZodObject<S>>) => Promise<unknown>) =>
@@ -81,6 +81,10 @@ function buildServer({ graphs, runs, tools }: Services, p: Principal, canvasUrl:
     query: z.string().optional().describe('Words matched against name and description'),
     connector: z.string().optional().describe('e.g. microsoft-graph, autotask, mspbots'),
   }, async ({ query, connector }) => tools.list({ query, connector }));
+
+  tool('skills_search', 'Find skills a step can follow instead of calling a tool. Returns names and descriptions.', {
+    query: z.string().optional().describe('Words matched against name and description'),
+  }, async ({ query }) => skills.list({ query }));
 
   // ---- Building flows
   tool('flow_list', 'List the flows in this workspace.', {}, async () => graphs.list(p));

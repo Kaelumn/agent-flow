@@ -46,6 +46,8 @@ const Env = z.object({
   AUTH_TOKENS: AuthTokens,
   /** Live tool catalog: a JSON file in the { "mcpServers": { name: { url, headers } } } shape. Takes precedence over TOOL_CATALOG_PATH. */
   TOOL_SERVERS_CONFIG: z.string().optional(),
+  /** Skill list endpoint returning { skills: [{ name, description }] }; mock-msp serves one at /skills. Unset: no skills. */
+  SKILLS_URL: z.string().url().optional(),
   /** Static tool catalog, for offline development and tests. */
   TOOL_CATALOG_PATH: z.string().default(`${packageRoot}data/tool-catalog.json`),
   WEB_DIST: z.string().default(`${packageRoot}../web/dist`),

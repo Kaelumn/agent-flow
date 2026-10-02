@@ -25,7 +25,7 @@ Ask at most three questions per message, most important first. Cover, in this or
 6. **Failures**: for each action that changes something, what happens if it fails: stop, continue, or notify and stop.
 7. **People**: steps only a human can do, and who is told about them.
 
-While you listen, check the tool catalog with `tools_search` so you can say early which steps have no tool. When you are unsure what a tool returns, call a **read-only** tool once to see the shape of its result. Never call a tool that writes while designing.
+While you listen, check the tool catalog with `tools_search` and the platform skills with `skills_search`, so you can say early how each step will be carried out. When you are unsure what a tool returns, call a **read-only** tool once to see the shape of its result. Never call a tool that writes while designing.
 
 ## 2. Confirm
 
@@ -35,7 +35,7 @@ Before building, write the flow back in plain language and ask the person to con
 - every branch with its condition;
 - what happens when each writing step fails;
 - the fixed parameters you will store;
-- steps that have no tool and how you will handle them;
+- how each step is carried out: a tool, a skill, or the agent alone;
 - your assumptions, marked as such.
 
 ## 3. Build
@@ -52,7 +52,9 @@ Build in the order the flow runs: a step's node, then the edge that leads to it.
 
 Rules:
 
+- **Each step is carried out one way**: a tool call, a platform skill, or the agent alone from the instruction. Use the agent alone for judgement and text work that needs no system (classify a ticket, extract fields from a description, draft a reply); write the instruction so it says exactly what to produce. Use a skill when the platform already has one for the job.
 - **One node, one tool call.** If a step needs several calls (one message per task, one call per group), either use a tool that takes a list, or combine the work into a single call (one message with one line per task).
+- **List what a step produces** in `outputs` (field names with a short description) when later steps use its result, especially for skill and agent steps whose result has no fixed shape. It tells the runner what to return and lets later steps reference `{{key.field}}`; nothing checks it at run time.
 - **Readable node ids** (`check_user`, `notify_missing`), so edges and references are easy to follow.
 - **Instructions are per step**: put a rule in the node where it applies, not in a global list. Keep it short and concrete.
 - **Fixed parameters go in the flow description**, with their real values, in a compact form the runner can read (for example `spokane: groups All Staff, Spokane Staff`).
@@ -60,7 +62,7 @@ Rules:
 - **Conditions** must be decidable from data available at that step, must not overlap, and at most one edge per node is the default. Add a first branch that ends the flow for requests it should ignore. Write them in plain language about what the runner has just seen (`the account does not exist`, `the ticket is not an onboarding request`). Do not put `{{references}}` in conditions: they are neither checked nor filled in there.
 - **Failure handling** is explicit on every writing step: `stop`, `continue`, or `goto` a node that notifies someone. Reading steps usually stop.
 - **End nodes** reflect business outcomes (`completed`, `stopped` for "nothing to do", `failed`) and have clear titles.
-- **Never invent a tool.** For a step without a tool, add a notification to the right person that tells them exactly what to do by hand, and list the gap in the flow description.
+- **Never invent a tool or a skill.** When a step needs a system action no tool provides, add a notification to the right person that tells them exactly what to do by hand, and list the gap in the flow description.
 - Titles and instructions are in the person's language only if the runner will understand it; otherwise English.
 
 ## 4. Check (required before publishing)

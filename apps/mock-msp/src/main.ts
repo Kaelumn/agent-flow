@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { hostPage } from './host.js';
+import { skills } from './skills.js';
 import { Tenant } from './tenant.js';
 import { buildServers, type CallLog } from './tools.js';
 
@@ -11,6 +12,7 @@ import { buildServers, type CallLog } from './tools.js';
  *   GET  /log     every tool call so far          (for test verification, not for agents)
  *   GET  /state   the tenant's current data
  *   POST /reset   back to the fixtures
+ *   GET  /skills  the MSPbots skill list, until the platform API is wired in
  *   GET|POST /chat   the mock conversation shown on /host ({ role: 'user' | 'agent', text }), for demos
  *   GET  /host?flow=<id>   a mock MSPbots conversation embedding the canvas (CANVAS_URL, default http://localhost:5173)
  */
@@ -29,6 +31,7 @@ for (let port = from!; port <= to!; port++) {
 
     if (req.method === 'GET' && url.pathname === '/log') return json(200, log);
     if (req.method === 'GET' && url.pathname === '/state') return json(200, tenant);
+    if (req.method === 'GET' && url.pathname === '/skills') return json(200, { skills });
     if (url.pathname === '/chat') {
       if (req.method === 'POST') chat.push(await readJson(req));
       return json(200, chat);

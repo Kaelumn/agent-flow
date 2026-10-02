@@ -14,6 +14,7 @@ import { conflict, invalid, notFound } from '../common/errors.js';
 import { newElementId, newId } from '../common/ids.js';
 import type { Principal } from '../common/principal.js';
 import type { GraphRepository } from '../repositories/graph-repository.js';
+import type { SkillCatalog } from './skill-catalog.js';
 import type { ToolCatalog } from './tool-catalog.js';
 
 export interface GraphWithIssues extends Graph {
@@ -30,6 +31,7 @@ export class GraphService {
   constructor(
     private readonly graphs: GraphRepository,
     private readonly tools: ToolCatalog,
+    private readonly skills: SkillCatalog,
     private readonly events: EventBus,
   ) {}
 
@@ -164,7 +166,7 @@ export class GraphService {
   }
 
   private check(doc: GraphDoc) {
-    return validateGraph(doc, (name) => this.tools.get(name));
+    return validateGraph(doc, { tool: (name) => this.tools.get(name), skill: (name) => this.skills.get(name) });
   }
 
   private withIssues(graph: Graph): GraphWithIssues {

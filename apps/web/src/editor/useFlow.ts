@@ -1,4 +1,4 @@
-import type { GraphDoc, GraphOp, ToolDefinition } from '@agent-flow/core';
+import type { GraphDoc, GraphOp, SkillDefinition, ToolDefinition } from '@agent-flow/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, type GraphWithIssues } from '../api/client';
 import { subscribe } from '../api/events';
@@ -22,6 +22,7 @@ export function useFlow(graphId: string) {
   const { fail, notify } = useToast();
   const [graph, setGraph] = useState<GraphWithIssues | null>(null);
   const [tools, setTools] = useState<ToolDefinition[]>([]);
+  const [skills, setSkills] = useState<SkillDefinition[]>([]);
   const [signals, setSignals] = useState<Signals>({ runs: 0, versions: 0 });
   const [missing, setMissing] = useState(false);
   const [live, setLive] = useState<LiveChange | null>(null);
@@ -56,6 +57,7 @@ export function useFlow(graphId: string) {
     setMissing(false);
     void reload();
     api.tools().then(setTools, fail);
+    api.skills().then(setSkills, fail);
 
     const resync = () => {
       void reload();
@@ -103,7 +105,7 @@ export function useFlow(graphId: string) {
 
   const toolsByName = useMemo(() => new Map(tools.map((t) => [t.name, t])), [tools]);
 
-  return { graph, missing, tools, toolsByName, signals, live, edit, reload, accept };
+  return { graph, missing, tools, skills, toolsByName, signals, live, edit, reload, accept };
 }
 
 export type FlowState = ReturnType<typeof useFlow>;

@@ -17,11 +17,12 @@ const VersionParams = IdParams.extend({ version: z.coerce.number().int().positiv
 const GraphMeta = z.object({ title: z.string().trim().min(1).max(120), description: z.string().max(4000).optional() });
 const EditBody = z.object({ ops: z.array(GraphOp).min(1), expectedRevision: z.number().int().optional() });
 const ToolsQuery = z.object({ q: z.string().optional(), connector: z.string().optional() });
+const SkillsQuery = z.object({ q: z.string().optional() });
 const EventsQuery = z.object({ graphId: z.string().optional() });
 
 /** Canvas-facing API. Every write goes through the same services the agent uses over MCP. */
 export async function restRoutes(app: FastifyInstance, { services, authenticate, embedOrigins }: { services: Services; authenticate: Authenticate; embedOrigins: string[] }) {
-  const { graphs, runs, tools } = services;
+  const { graphs, runs, tools, skills } = services;
 
   app.decorateRequest('principal', null as unknown as Principal);
   app.addHook('onRequest', async (req) => {
@@ -33,6 +34,8 @@ export async function restRoutes(app: FastifyInstance, { services, authenticate,
     const { q, connector } = ToolsQuery.parse(req.query);
     return tools.list({ query: q, connector });
   });
+
+  app.get('/skills', async (req) => skills.list({ query: SkillsQuery.parse(req.query).q }));
 
   app.get('/graphs', async (req) => graphs.list(req.principal));
   app.post('/graphs', async (req, reply) => reply.code(201).send(await graphs.create(req.principal, GraphMeta.parse(req.body))));
