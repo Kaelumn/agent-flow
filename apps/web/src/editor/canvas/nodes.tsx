@@ -15,6 +15,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   runMark?: RunMark;
   /** Title of the node the run jumps to when this step fails. */
   errorTarget?: string;
+  /** Live playback of someone else's change. */
+  motion?: 'enter' | 'leave' | 'flash';
 }
 
 export type CanvasNode = Node<FlowNodeData>;
@@ -27,6 +29,8 @@ const RUN_STATE: Record<RunMark, { border: string; badge: string; icon: ReactNod
   skipped: { border: 'border-amber-400', badge: 'bg-amber-500 text-white', icon: <Minus size={11} strokeWidth={3} />, label: 'Skipped' },
   failed: { border: 'border-rose-500 ring-4 ring-rose-500/10', badge: 'bg-rose-600 text-white', icon: <X size={11} strokeWidth={3} />, label: 'Failed' },
 };
+
+const MOTION = { enter: 'af-enter', leave: 'af-leave', flash: 'af-flash' } as const;
 
 function frame(selected: boolean, data: FlowNodeData, hasErrors: boolean) {
   if (selected) return 'border-indigo-500 ring-4 ring-indigo-500/15 shadow-md';
@@ -73,7 +77,7 @@ function ToolNode({ data, selected }: NodeProps<CanvasNode>) {
   const hasErrors = data.issues.some((i) => i.severity === 'error');
 
   return (
-    <div style={{ width: nodeSize('tool').width, minHeight: nodeSize('tool').height }} className={cx('group relative rounded-xl border bg-white px-3 py-2.5 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors))}>
+    <div style={{ width: nodeSize('tool').width, minHeight: nodeSize('tool').height }} className={cx('group relative rounded-xl border bg-white px-3 py-2.5 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors), data.motion && MOTION[data.motion])}>
       <Handle type="target" position={Position.Top} />
       <RunBadge mark={data.runMark} />
       <div className="flex gap-3">
@@ -108,7 +112,7 @@ function StartNode({ data, selected }: NodeProps<CanvasNode>) {
   const inputs = data.node.inputs ?? [];
   const hasErrors = data.issues.some((i) => i.severity === 'error');
   return (
-    <div style={{ width: nodeSize('start').width, minHeight: nodeSize('start').height }} className={cx('relative flex items-center gap-3 rounded-full border bg-white py-2 pr-4 pl-2 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors))}>
+    <div style={{ width: nodeSize('start').width, minHeight: nodeSize('start').height }} className={cx('relative flex items-center gap-3 rounded-full border bg-white py-2 pr-4 pl-2 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors), data.motion && MOTION[data.motion])}>
       <RunBadge mark={data.runMark} />
       <div className="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-sm shadow-emerald-500/30">
         <Play size={16} fill="currentColor" className="ml-0.5" />
@@ -138,7 +142,7 @@ function EndNode({ data, selected }: NodeProps<CanvasNode>) {
   const Icon = outcome.icon;
   const hasErrors = data.issues.some((i) => i.severity === 'error');
   return (
-    <div style={{ width: nodeSize('end').width, minHeight: nodeSize('end').height }} className={cx('relative flex items-center gap-2.5 rounded-full border bg-white py-1.5 pr-4 pl-1.5 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors))}>
+    <div style={{ width: nodeSize('end').width, minHeight: nodeSize('end').height }} className={cx('relative flex items-center gap-2.5 rounded-full border bg-white py-1.5 pr-4 pl-1.5 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors), data.motion && MOTION[data.motion])}>
       <Handle type="target" position={Position.Top} />
       <RunBadge mark={data.runMark} />
       <div className={cx('grid size-9 shrink-0 place-items-center rounded-full', outcome.tint)}>

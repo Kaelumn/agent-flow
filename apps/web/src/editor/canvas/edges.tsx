@@ -11,6 +11,8 @@ export interface FlowEdgeData extends Record<string, unknown> {
   label?: string;
   /** Present when a step can be inserted on this edge. */
   onInsert?: () => void;
+  /** Live playback of someone else's change: the line draws itself in, or fades out. */
+  motion?: 'enter' | 'leave';
 }
 
 export type CanvasEdge = Edge<FlowEdgeData, 'flow'>;
@@ -38,20 +40,24 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
   if (!data) return null;
   const color = edgeColor(data);
   const emphasised = data.tone !== 'normal';
-  const dashed = data.kind === 'fallback' || data.kind === 'error' || data.tone === 'trace';
+  const drawing = data.motion === 'enter';
+  const dashed = !drawing && (data.kind === 'fallback' || data.kind === 'error' || data.tone === 'trace');
 
   return (
     <>
       <BaseEdge
         id={id}
         path={path}
-        markerEnd={markerEnd}
+        markerEnd={drawing ? undefined : markerEnd}
         interactionWidth={24}
+        // A unit path length lets the draw-in animation run the same way on short and long edges.
+        pathLength={drawing ? 1 : undefined}
+        className={drawing ? 'af-draw' : data.motion === 'leave' ? 'af-leave' : undefined}
         style={{
           stroke: color,
           strokeWidth: emphasised ? 2.25 : 1.5,
           strokeDasharray: dashed ? '6 5' : undefined,
-          animation: data.tone === 'trace' ? 'af-dash 0.8s linear infinite' : undefined,
+          animation: data.tone === 'trace' && !drawing ? 'af-dash 0.8s linear infinite' : undefined,
         }}
       />
       <EdgeLabelRenderer>
@@ -63,6 +69,8 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
               className={cx(
                 'nodrag nopan pointer-events-auto absolute max-w-[220px] cursor-pointer truncate rounded-full border px-2.5 py-0.5 text-[11px] leading-5 font-medium shadow-sm',
                 LABEL_STYLE[data.kind],
+                drawing && 'af-label-enter',
+                data.motion === 'leave' && 'af-leave',
                 data.tone === 'selected' && 'border-indigo-300 text-indigo-700 ring-2 ring-indigo-500/15',
                 data.tone === 'invalid' && 'border-rose-300 text-rose-700',
               )}

@@ -192,6 +192,7 @@ export function Editor({ graphId, hostOrigin, onGone }: { graphId: string; hostO
             issues={issues}
             toolsByName={flow.toolsByName}
             trace={trace}
+            live={viewingRun ? null : flow.live}
             selection={selection}
             readOnly={viewingRun}
             onSelect={select}

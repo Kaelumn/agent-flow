@@ -15,12 +15,14 @@ import {
 import '@xyflow/react/dist/style.css';
 import { MousePointerClick } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { LiveChange } from '../useFlow';
 import { AnnotationLayer } from '../annotate/AnnotationLayer';
 import type { Annotation } from '../annotate/message';
 import { errorJumps, nodeSize, resolvePositions } from '../layout';
 import { edgeColor, edgeTypes, type CanvasEdge, type EdgeKind, type FlowEdgeData } from './edges';
 import { nodeTypes, type CanvasNode, type RunMark } from './nodes';
 import { Toolbar } from './Toolbar';
+import { SETTLE_MS, useLivePlayback } from './useLivePlayback';
 
 export type CanvasInstance = ReactFlowInstance<CanvasNode, CanvasEdge>;
 
@@ -36,6 +38,8 @@ interface Props {
   issues: Issue[];
   toolsByName: Map<string, ToolDefinition>;
   trace: RunTrace | null;
+  /** Someone else's latest change, played back as it arrives. */
+  live: LiveChange | null;
   selection: Selection;
   onSelect: (selection: Selection) => void;
   onConnect: (source: string, target: string) => void;
@@ -57,33 +61,113 @@ interface Props {
 
 const JUMP_PREFIX = 'jump:';
 const MINIMAP_COLOR = { start: '#10b981', tool: '#6366f1', end: '#94a3b8' } as const;
+/** After the reviewer pans or zooms, playback stops moving the view for this long. */
+const HANDS_OFF_MS = 3000;
+const FOLLOW_MARGIN = 60;
+
+const ease = (t: number) => 1 - (1 - t) ** 3;
 
 export function FlowCanvas(props: Props) {
   const { doc, issues, toolsByName, trace, selection, onSelect, readOnly = false } = props;
   const instance = useRef<CanvasInstance | null>(null);
+  const wrapper = useRef<HTMLDivElement>(null);
+  const userMovedAt = useRef(0);
+
+  /**
+   * Keeps what playback just showed in view, unless the reviewer is steering the view. Called with null when a
+   * sequence ends: if the layout moved everything off screen meanwhile, the whole flow is brought back.
+   */
+  const follow = (ids: string[] | null) => {
+    const rf = instance.current;
+    const bounds = wrapper.current?.getBoundingClientRect();
+    if (!rf || !bounds || Date.now() - userMovedAt.current < HANDS_OFF_MS) return;
+    const box = (list: CanvasNode[]) => {
+      const rects = list.map((n) => ({ ...n.position, ...nodeSize(n.data.node.type) }));
+      const x = Math.min(...rects.map((r) => r.x));
+      const y = Math.min(...rects.map((r) => r.y));
+      return { x, y, width: Math.max(...rects.map((r) => r.x + r.width)) - x, height: Math.max(...rects.map((r) => r.y + r.height)) - y };
+    };
+    const corners = (r: { x: number; y: number; width: number; height: number }) => [rf.flowToScreenPosition(r), rf.flowToScreenPosition({ x: r.x + r.width, y: r.y + r.height })] as const;
+
+    if (!ids) {
+      const onScreen = rf.getNodes().some((n) => {
+        const [a, b] = corners(box([n]));
+        return !n.hidden && b.x > bounds.left && a.x < bounds.right && b.y > bounds.top && a.y < bounds.bottom;
+      });
+      if (!onScreen) void rf.fitView({ padding: 0.2, maxZoom: 1, duration: 400 });
+      return;
+    }
+    const shown = ids.flatMap((id) => rf.getNode(id) ?? []);
+    if (!shown.length) return;
+    const target = box(shown);
+    const [a, b] = corners(target);
+    const inside = a.x > bounds.left + FOLLOW_MARGIN && b.x < bounds.right - FOLLOW_MARGIN && a.y > bounds.top + FOLLOW_MARGIN && b.y < bounds.bottom - FOLLOW_MARGIN;
+    if (!inside) void rf.setCenter(target.x + target.width / 2, target.y + target.height / 2, { zoom: rf.getZoom(), duration: 350 });
+  };
+  const playback = useLivePlayback(props.live, follow);
 
   const derived = useMemo<CanvasNode[]>(() => {
     const positions = resolvePositions(doc);
     const titles = new Map(doc.nodes.map((n) => [n.id, n.title]));
-    return doc.nodes.map((node) => ({
+    const current = doc.nodes.map((node): CanvasNode => ({
       id: node.id,
       type: node.type,
       position: positions[node.id]!,
       deletable: node.type !== 'start',
       selected: selection?.kind === 'node' && selection.id === node.id,
+      hidden: playback.hidden.has(node.id),
       data: {
         node,
         tool: node.tool ? toolsByName.get(node.tool.name) : undefined,
         issues: issues.filter((i) => i.nodeId === node.id),
         runMark: trace?.marks.get(node.id),
         errorTarget: node.onError?.targetNodeId ? titles.get(node.onError.targetNodeId) : undefined,
+        motion: playback.entering.has(node.id) ? 'enter' : playback.flashing.has(node.id) ? 'flash' : undefined,
       },
     }));
-  }, [doc, issues, toolsByName, trace, selection]);
+    if (!playback.ghosts || !props.live) return current;
+    const before = resolvePositions(props.live.from);
+    const ghosts = playback.ghosts.nodes.map((node): CanvasNode => ({
+      id: node.id,
+      type: node.type,
+      position: before[node.id]!,
+      selectable: false,
+      draggable: false,
+      deletable: false,
+      data: { node, tool: node.tool ? toolsByName.get(node.tool.name) : undefined, issues: [], motion: 'leave' },
+    }));
+    return [...current, ...ghosts];
+  }, [doc, issues, toolsByName, trace, selection, playback]);
 
   // Local copy so dragging is smooth; the server copy wins whenever it changes.
+  // Sizes React Flow measured carry over: a node without them is re-measured and its edges vanish for a frame.
+  // On a live change, nodes the new layout moves glide there instead of jumping.
   const [nodes, setNodes] = useState(derived);
-  useEffect(() => setNodes(derived), [derived]);
+  const shown = useRef(nodes);
+  shown.current = nodes;
+  const glided = useRef<number | null>(null);
+  useEffect(() => {
+    const measured = new Map(shown.current.map((n) => [n.id, n.measured]));
+    const place = (at: (n: CanvasNode) => CanvasNode['position']) => derived.map((n) => ({ ...n, position: at(n), measured: measured.get(n.id) }));
+    if (!playback.animate || playback.revision === glided.current) return setNodes(place((n) => n.position));
+    glided.current = playback.revision;
+    const from = new Map(shown.current.map((n) => [n.id, n.position]));
+    const start = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const k = ease(Math.min(1, (now - start) / SETTLE_MS));
+      setNodes(
+        place((n) => {
+          const p = from.get(n.id);
+          return p ? { x: p.x + (n.position.x - p.x) * k, y: p.y + (n.position.y - p.y) * k } : n.position;
+        }),
+      );
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    // The first frame goes out now, so hidden and fading elements take effect even if frames are slow.
+    step(start);
+    return () => cancelAnimationFrame(frame);
+  }, [derived]);
 
   const edges = useMemo<CanvasEdge[]>(() => {
     const outDegree = new Map<string, number>();
@@ -96,9 +180,10 @@ export function FlowCanvas(props: Props) {
       target,
       type: 'flow',
       selected,
-      selectable: !id.startsWith(JUMP_PREFIX),
-      deletable: !id.startsWith(JUMP_PREFIX),
-      data,
+      hidden: playback.hidden.has(id),
+      selectable: !id.startsWith(JUMP_PREFIX) && data.motion !== 'leave',
+      deletable: !id.startsWith(JUMP_PREFIX) && data.motion !== 'leave',
+      data: { ...data, motion: data.motion ?? (playback.entering.has(id) ? 'enter' : undefined) },
       markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor(data), width: 14, height: 14 },
     });
 
@@ -111,8 +196,9 @@ export function FlowCanvas(props: Props) {
       return make(e.id, e.source, e.target, { kind, tone, label, onInsert: readOnly ? undefined : () => props.onInsertOnEdge(e.id) }, selected);
     });
     const jumpEdges = errorJumps(doc.nodes).map((j) => make(`${JUMP_PREFIX}${j.source}`, j.source, j.target, { kind: 'error', tone: 'normal', label: 'On error' }));
-    return [...jumpEdges, ...flowEdges];
-  }, [doc, issues, trace, selection, readOnly]);
+    const ghostEdges = (playback.ghosts?.edges ?? []).map((e) => make(e.id, e.source, e.target, { kind: 'plain', tone: 'normal', motion: 'leave' }));
+    return [...jumpEdges, ...flowEdges, ...ghostEdges];
+  }, [doc, issues, trace, selection, readOnly, playback]);
 
   const handleNodesChange = (changes: NodeChange<CanvasNode>[]) => setNodes((ns) => applyNodeChanges(changes.filter((c) => c.type !== 'remove'), ns));
 
@@ -134,6 +220,7 @@ export function FlowCanvas(props: Props) {
 
   return (
     <ReactFlow
+      ref={wrapper}
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
@@ -146,6 +233,12 @@ export function FlowCanvas(props: Props) {
       onNodeClick={(_, n) => onSelect({ kind: 'node', id: n.id })}
       onEdgeClick={(_, e) => onSelect(e.id.startsWith(JUMP_PREFIX) ? { kind: 'node', id: e.source } : { kind: 'edge', id: e.id })}
       onPaneClick={() => onSelect(null)}
+      onMoveStart={(event) => {
+        if (event) userMovedAt.current = Date.now();
+      }}
+      onMoveEnd={(event) => {
+        if (event) userMovedAt.current = Date.now();
+      }}
       onConnect={(c: Connection) => c.source && c.target && c.source !== c.target && props.onConnect(c.source, c.target)}
       onConnectEnd={handleConnectEnd}
       onNodeDragStop={(_, __, dragged) => props.onMove(Object.fromEntries(dragged.map((n) => [n.id, { x: Math.round(n.position.x), y: Math.round(n.position.y) }])))}
@@ -181,7 +274,18 @@ export function FlowCanvas(props: Props) {
         nodeColor={(n) => MINIMAP_COLOR[n.type as keyof typeof MINIMAP_COLOR] ?? '#94a3b8'}
         nodeBorderRadius={6}
       />
-      {isBlank && editable && (
+      {playback.actor && !annotate && (
+        <Panel position="top-left" className="!mt-4 !ml-4">
+          <div className="flex items-center gap-2 whitespace-nowrap rounded-full border border-indigo-200 bg-white/95 px-3.5 py-1.5 text-[12.5px] font-medium text-slate-700 shadow-lg shadow-slate-900/5 backdrop-blur">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-indigo-400 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-indigo-500" />
+            </span>
+            {playback.actor} is editing
+          </div>
+        </Panel>
+      )}
+      {isBlank && editable && !playback.actor && (
         <Panel position="top-center" className="!mt-6">
           <div className="flex max-w-md items-start gap-3 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg shadow-slate-900/5 backdrop-blur">
             <MousePointerClick size={18} className="mt-0.5 shrink-0 text-indigo-500" />

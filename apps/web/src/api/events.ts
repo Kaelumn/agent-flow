@@ -10,15 +10,37 @@ const RETRY_MS = 3000;
 /** The server sends a heartbeat every 15s; silence beyond this means a dead connection. */
 const STALE_MS = 40_000;
 
+type Listener = { graphId: string | null; onEvent: (event: ServerEvent) => void; onResync?: () => void };
+
+/** Every subscriber in the tab shares one stream: browsers allow only a few open connections per host. */
+const listeners = new Set<Listener>();
+let close: (() => void) | null = null;
+
 /**
- * Server-sent events over fetch, so the token travels in a header rather than the URL.
- * Reconnects until the returned function is called. `onResync` runs after every reconnect,
- * because events sent while disconnected are lost.
+ * Calls `onEvent` for the workspace's events, or one flow's when `graphId` is set, until the returned function
+ * is called. `onResync` runs after every reconnect, because events sent while disconnected are lost.
  */
 export function subscribe(graphId: string | null, onEvent: (event: ServerEvent) => void, onResync?: () => void): () => void {
+  const listener = { graphId, onEvent, onResync };
+  listeners.add(listener);
+  close ??= connect(
+    (event) => listeners.forEach((l) => (!l.graphId || l.graphId === event.graphId) && l.onEvent(event)),
+    () => listeners.forEach((l) => l.onResync?.()),
+  );
+  return () => {
+    listeners.delete(listener);
+    if (!listeners.size) {
+      close?.();
+      close = null;
+    }
+  };
+}
+
+/** Server-sent events over fetch, so the token travels in a header rather than the URL. Reconnects until closed. */
+function connect(onEvent: (event: ServerEvent) => void, onResync: () => void): () => void {
   const stopped = new AbortController();
 
-  const connect = async () => {
+  const run = async () => {
     for (let attempt = 0; !stopped.signal.aborted; attempt++) {
       const connection = new AbortController();
       const abort = () => connection.abort();
@@ -30,10 +52,9 @@ export function subscribe(graphId: string | null, onEvent: (event: ServerEvent) 
       };
 
       try {
-        const query = graphId ? `?graphId=${encodeURIComponent(graphId)}` : '';
-        const res = await fetch(`/api/events${query}`, { headers: { authorization: `Bearer ${getToken() ?? ''}` }, signal: connection.signal });
+        const res = await fetch('/api/events', { headers: { authorization: `Bearer ${getToken() ?? ''}` }, signal: connection.signal });
         if (!res.ok || !res.body) throw new Error(`events: ${res.status}`);
-        if (attempt > 0) onResync?.();
+        if (attempt > 0) onResync();
 
         const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
         let buffer = '';
@@ -58,7 +79,7 @@ export function subscribe(graphId: string | null, onEvent: (event: ServerEvent) 
       if (!stopped.signal.aborted) await new Promise((r) => setTimeout(r, RETRY_MS));
     }
   };
-  void connect();
+  void run();
   return () => stopped.abort();
 }
 
