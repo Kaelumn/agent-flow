@@ -14,6 +14,12 @@ export const NODE_HEIGHT = SIZES.tool.height;
 
 const GAP_X = 56;
 const GAP_Y = 72;
+/** The canvas snaps to this grid; layout positions sit on it too, so nodes it centres can be moved and stay centred. */
+export const GRID = 8;
+/** A dragged node this close (flow px) to centring on a connected node snaps into line with it. */
+const ALIGN_DISTANCE = 10;
+
+const onGrid = (v: number) => Math.round(v / GRID) * GRID;
 
 /** Error jumps are transitions too, so failure handling lays out below the step that fails. */
 export const errorJumps = (nodes: FlowNode[]) =>
@@ -40,7 +46,8 @@ export function autoLayout(doc: GraphDoc): Record<string, Position> {
     doc.nodes.map((n) => {
       const { x, y } = g.node(n.id);
       const { width, height } = nodeSize(n.type);
-      return [n.id, { x: Math.round(x - width / 2), y: Math.round(y - height / 2) }];
+      // Every node's half-width is the same distance off the grid, so nodes sharing a centre still share it after snapping.
+      return [n.id, { x: onGrid(x - width / 2), y: onGrid(y - height / 2) }];
     }),
   );
 }
@@ -102,4 +109,24 @@ export function makeRoomBefore(doc: GraphDoc, positions: Record<string, Position
   const target = doc.nodes.find((n) => n.id === targetId)!;
   const spot = { x: Math.round(top.x + (nodeSize(target.type).width - width) / 2), y: top.y };
   return { spot, moved };
+}
+
+/**
+ * Where a dragged node lands: when its centre is within a few pixels of a connected node's centre, exactly in line
+ * with it, so the edge between them runs straight. Nodes of different widths could not line up on the grid otherwise.
+ */
+export function alignToNeighbours(doc: GraphDoc, id: string, at: Position, positions: Record<string, Position>): Position {
+  const node = doc.nodes.find((n) => n.id === id);
+  if (!node) return at;
+  const half = nodeSize(node.type).width / 2;
+  const centre = at.x + half;
+  const neighbours = [...doc.edges, ...errorJumps(doc.nodes)].flatMap((e) => (e.source === id ? [e.target] : e.target === id ? [e.source] : []));
+  let best: number | null = null;
+  for (const other of doc.nodes) {
+    const p = positions[other.id];
+    if (!p || !neighbours.includes(other.id)) continue;
+    const c = p.x + nodeSize(other.type).width / 2;
+    if (Math.abs(c - centre) <= ALIGN_DISTANCE && (best === null || Math.abs(c - centre) < Math.abs(best - centre))) best = c;
+  }
+  return best === null ? at : { x: best - half, y: at.y };
 }

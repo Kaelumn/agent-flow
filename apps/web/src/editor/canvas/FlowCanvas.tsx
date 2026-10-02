@@ -18,7 +18,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LiveChange } from '../useFlow';
 import { AnnotationLayer } from '../annotate/AnnotationLayer';
 import type { Annotation } from '../annotate/message';
-import { errorJumps, nodeSize, resolvePositions } from '../layout';
+import { alignToNeighbours, errorJumps, GRID, nodeSize, resolvePositions } from '../layout';
 import { edgeColor, edgeTypes, type CanvasEdge, type EdgeKind, type FlowEdgeData } from './edges';
 import { nodeTypes, type CanvasNode, type RunMark } from './nodes';
 import { Toolbar } from './Toolbar';
@@ -224,7 +224,14 @@ export function FlowCanvas(props: Props) {
     return [...jumpEdges, ...flowEdges, ...ghostEdges];
   }, [doc, issues, trace, selection, readOnly, playback]);
 
-  const handleNodesChange = (changes: NodeChange<CanvasNode>[]) => setNodes((ns) => applyNodeChanges(changes.filter((c) => c.type !== 'remove'), ns));
+  // A single dragged node lines up with a connected node it is close to.
+  const handleNodesChange = (changes: NodeChange<CanvasNode>[]) =>
+    setNodes((ns) => {
+      const dragged = changes.filter((c) => c.type === 'position' && c.dragging && c.position);
+      const at = Object.fromEntries(ns.map((n) => [n.id, n.position]));
+      const adjusted = changes.map((c) => (dragged.length === 1 && c === dragged[0] && c.type === 'position' && c.position ? { ...c, position: alignToNeighbours(doc, c.id, c.position, at) } : c));
+      return applyNodeChanges(adjusted.filter((c) => c.type !== 'remove'), ns);
+    });
 
   const handleConnectEnd = (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
     if (readOnly || state.isValid || !state.fromNode || state.fromHandle?.type !== 'source' || !instance.current) return;
@@ -265,7 +272,17 @@ export function FlowCanvas(props: Props) {
       }}
       onConnect={(c: Connection) => c.source && c.target && c.source !== c.target && props.onConnect(c.source, c.target)}
       onConnectEnd={handleConnectEnd}
-      onNodeDragStop={(_, __, dragged) => props.onMove(Object.fromEntries(dragged.map((n) => [n.id, { x: Math.round(n.position.x), y: Math.round(n.position.y) }])))}
+      onNodeDragStop={(_, __, dragged) =>
+        props.onMove(
+          Object.fromEntries(
+            dragged.map((n) => {
+              // Where the canvas shows the node, which includes the alignment above.
+              const p = shown.current.find((s) => s.id === n.id)?.position ?? n.position;
+              return [n.id, { x: Math.round(p.x), y: Math.round(p.y) }];
+            }),
+          ),
+        )
+      }
       onBeforeDelete={async ({ nodes: ns, edges: es }) => {
         props.onDelete([...ns.map((n) => ({ kind: 'node' as const, id: n.id })), ...es.map((e) => ({ kind: 'edge' as const, id: e.id }))]);
         return false;
@@ -275,7 +292,7 @@ export function FlowCanvas(props: Props) {
       nodesConnectable={editable}
       connectionRadius={32}
       snapToGrid
-      snapGrid={[8, 8]}
+      snapGrid={[GRID, GRID]}
       fitView
       fitViewOptions={{ padding: fitPadding(props.insets), maxZoom: 1 }}
       panOnScroll
