@@ -74,6 +74,14 @@ body {
   cursor: grabbing;
 }
 
+/* A selected edge shows its two ends as dots that can be dragged onto another node. */
+.af-canvas .react-flow__edge.selected .react-flow__edgeupdater {
+  fill: #ffffff;
+  stroke: #4f46e5;
+  stroke-width: 2;
+  r: 6px;
+}
+
 .af-canvas .react-flow__node {
   cursor: pointer;
 }

@@ -8,7 +8,8 @@ import { centerOn, fitPadding, FlowCanvas, minimapSize, minimapSpace, type Canva
 import type { RunMark } from './canvas/nodes';
 import { Dock, dockInsets, NARROW_WIDTH, type DockTab } from './Dock';
 import { EditorHeader } from './EditorHeader';
-import { autoLayout, makeRoomBefore, NODE_HEIGHT, NODE_WIDTH, resolvePositions, spotBelow } from './layout';
+import { exportPng } from './canvas/exportImage';
+import { autoLayout, makeRoomBefore, NODE_HEIGHT, NODE_WIDTH, resolvePositions, spotAfter, spotBelow } from './layout';
 import { EdgePanel } from './panels/EdgePanel';
 import { FlowPanel } from './panels/FlowPanel';
 import { HistoryPanel } from './panels/HistoryPanel';
@@ -186,6 +187,23 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
     ]);
   };
 
+  /** Toolbar "add a step after": inside the node's only edge, or as a new branch below it. */
+  const addAfter = (id: string) => {
+    const outs = graph.draft.edges.filter((e) => e.source === id);
+    if (outs.length === 1) void insertOnEdge(outs[0]!.id);
+    else void connectToNew(id, spotAfter(graph.draft, resolvePositions(graph.draft), id));
+  };
+
+  /** A copy beside the original, unconnected; it drops the output key, which must stay unique. */
+  const duplicate = (id: string) => {
+    const node = graph.draft.nodes.find((n) => n.id === id);
+    const at = resolvePositions(graph.draft)[id];
+    if (!node || !at) return;
+    const { id: _id, position: _position, outputKey: _key, ...rest } = node;
+    const copy = newId();
+    void createStep(copy, [{ op: 'addNodes', nodes: [{ ...rest, id: copy, title: `${node.title} (copy)`.slice(0, 120), position: { x: at.x + NODE_WIDTH + 56, y: at.y } }] }]);
+  };
+
   const remove = async (items: NonNullable<Selection>[]) => {
     const nodes = items.filter((i) => i.kind === 'node');
     if (nodes.length && !(await confirm({ title: 'Delete steps', message: `Delete ${nodes.length} step(s) and their connections?`, confirmLabel: 'Delete', danger: true }))) return;
@@ -238,6 +256,9 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
         onConnect={(source, target) => void edit([{ op: 'addEdges', edges: [{ source, target }] }])}
         onConnectToNew={(source, position) => void connectToNew(source, position)}
         onInsertOnEdge={(edgeId) => void insertOnEdge(edgeId)}
+        onReconnect={(edgeId, source, target) => void edit([{ op: 'updateEdge', edgeId, patch: { source, target } }])}
+        nodeActions={{ addAfter, duplicate, remove: (id) => void remove([{ kind: 'node', id }]) }}
+        onExport={() => rf && root.current && exportPng(rf, root.current, graph.title).catch(fail)}
         onMove={(positions) => void edit(placed([{ op: 'moveNodes', positions }]))}
         onDelete={remove}
         onAddStep={() => void addNode('tool')}

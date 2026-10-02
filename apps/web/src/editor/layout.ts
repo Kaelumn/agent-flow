@@ -79,6 +79,14 @@ export function resolvePositions(doc: GraphDoc): Record<string, Position> {
   return positions;
 }
 
+/** Where a new step goes under node `id`: centred on it, so the edge between them runs straight, and clear of others. */
+export function spotAfter(doc: GraphDoc, positions: Record<string, Position>, id: string): Position {
+  const node = doc.nodes.find((n) => n.id === id)!;
+  const at = positions[id]!;
+  const { width, height } = nodeSize(node.type);
+  return spotBelow(Object.values(positions), { x: at.x + (width - NODE_WIDTH) / 2, y: at.y + height - NODE_HEIGHT });
+}
+
 /** A spot below `anchor` (or below everything) that does not overlap an existing node. */
 export function spotBelow(positions: Position[], anchor?: Position): Position {
   const base = anchor ?? { x: Math.min(0, ...positions.map((p) => p.x)), y: Math.max(-NODE_HEIGHT - GAP_Y, ...positions.map((p) => p.y)) };

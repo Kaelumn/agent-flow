@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { cx } from '../../components/ui';
 import { stepStyle } from '../connectors';
 import { nodeSize } from '../layout';
+import { NodeActionBar } from './NodeActions';
 
 export type RunMark = StepStatus | 'current';
 
@@ -79,6 +80,7 @@ function ToolNode({ data, selected }: NodeProps<CanvasNode>) {
   return (
     <div style={{ width: nodeSize('tool').width, minHeight: nodeSize('tool').height }} className={cx('group relative rounded-xl border bg-white px-3 py-2.5 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors), data.motion && MOTION[data.motion])}>
       <Handle type="target" position={Position.Top} />
+      <NodeActionBar node={node} selected={selected} />
       <RunBadge mark={data.runMark} />
       <div className="flex gap-3">
         <div className={cx('grid size-9 shrink-0 place-items-center rounded-lg ring-1', style.tile)}>
@@ -127,6 +129,7 @@ function StartNode({ data, selected }: NodeProps<CanvasNode>) {
         </div>
       </div>
       <Handle type="source" position={Position.Bottom} />
+      <NodeActionBar node={data.node} selected={selected} />
     </div>
   );
 }
@@ -144,6 +147,7 @@ function EndNode({ data, selected }: NodeProps<CanvasNode>) {
   return (
     <div style={{ width: nodeSize('end').width, minHeight: nodeSize('end').height }} className={cx('relative flex items-center gap-2.5 rounded-full border bg-white py-1.5 pr-4 pl-1.5 shadow-sm transition-[border-color,box-shadow]', frame(selected, data, hasErrors), data.motion && MOTION[data.motion])}>
       <Handle type="target" position={Position.Top} />
+      <NodeActionBar node={data.node} selected={selected} />
       <RunBadge mark={data.runMark} />
       <div className={cx('grid size-9 shrink-0 place-items-center rounded-full', outcome.tint)}>
         <Icon size={18} strokeWidth={2} />

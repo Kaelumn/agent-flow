@@ -1,5 +1,5 @@
 import { Panel, useReactFlow, useStore, useViewport, type FitViewOptions } from '@xyflow/react';
-import { CircleStop, LayoutGrid, Maximize, Minus, Plus, SquareDashedMousePointer, SquarePlus } from 'lucide-react';
+import { CircleStop, ImageDown, LayoutGrid, Maximize, Minus, Plus, SquareDashedMousePointer, SquarePlus } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cx, Tooltip } from '../../components/ui';
 
@@ -9,6 +9,7 @@ interface Props {
   onAddEnd: () => void;
   onTidy: () => void;
   onAnnotate: () => void;
+  onExport: () => void;
   /** Icons only, for narrow canvases. */
   compact: boolean;
   /** Width covered along the bottom-right edge. The toolbar stays centred and moves left only to clear it. */
@@ -19,7 +20,7 @@ interface Props {
 /** Floating canvas toolbar: editing on the left, view controls on the right. */
 const GAP = 12;
 
-export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy, onAnnotate, compact, reserve, fit }: Props) {
+export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy, onAnnotate, onExport, compact, reserve, fit }: Props) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const { zoom } = useViewport();
   const canvas = useStore((s) => s.width);
@@ -60,6 +61,8 @@ export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy, onAnnotate, com
         </Tooltip>
         <Tool onClick={() => zoomIn({ duration: 150 })} label="Zoom in"><Plus size={16} /></Tool>
         {!compact && <Tool onClick={fitAll} label="Fit to screen"><Maximize size={15} /></Tool>}
+        <span className="mx-1 h-5 w-px bg-slate-200" />
+        <Tool onClick={onExport} label="Download the whole flow as a PNG image"><ImageDown size={16} /></Tool>
       </div>
     </Panel>
   );

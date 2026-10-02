@@ -21,6 +21,7 @@ import type { Annotation } from '../annotate/message';
 import { alignToNeighbours, errorJumps, GRID, nodeSize, resolvePositions } from '../layout';
 import { edgeColor, edgeTypes, type CanvasEdge, type EdgeKind, type FlowEdgeData } from './edges';
 import { nodeTypes, type CanvasNode, type RunMark } from './nodes';
+import { NodeActionsContext, type NodeActions } from './NodeActions';
 import { Toolbar } from './Toolbar';
 import { SETTLE_MS, useLivePlayback } from './useLivePlayback';
 
@@ -70,6 +71,11 @@ interface Props {
   /** A connection dragged from `source` and dropped on empty canvas. */
   onConnectToNew: (source: string, position: Position) => void;
   onInsertOnEdge: (edgeId: string) => void;
+  /** An edge's end dragged onto another node. */
+  onReconnect: (edgeId: string, source: string, target: string) => void;
+  /** The floating toolbar of the selected node. */
+  nodeActions: NodeActions;
+  onExport: () => void;
   onMove: (positions: Record<string, Position>) => void;
   onDelete: (selection: NonNullable<Selection>[]) => void;
   onAddStep: () => void;
@@ -216,6 +222,8 @@ export function FlowCanvas(props: Props) {
       hidden: playback.hidden.has(id),
       selectable: !id.startsWith(JUMP_PREFIX) && data.motion !== 'leave',
       deletable: !id.startsWith(JUMP_PREFIX) && data.motion !== 'leave',
+      // Error jumps are set in the node's failure settings, not by dragging.
+      reconnectable: !id.startsWith(JUMP_PREFIX) && data.motion !== 'leave',
       data: { ...data, motion: data.motion ?? (playback.entering.has(id) ? 'enter' : undefined) },
       markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor(data), width: 14, height: 14 },
     });
@@ -259,6 +267,7 @@ export function FlowCanvas(props: Props) {
   const editable = !readOnly && !annotate;
 
   return (
+    <NodeActionsContext.Provider value={editable ? props.nodeActions : null}>
     <ReactFlow
       ref={wrapper}
       nodes={nodes}
@@ -281,6 +290,9 @@ export function FlowCanvas(props: Props) {
       }}
       onConnect={(c: Connection) => c.source && c.target && c.source !== c.target && props.onConnect(c.source, c.target)}
       onConnectEnd={handleConnectEnd}
+      edgesReconnectable={editable}
+      reconnectRadius={12}
+      onReconnect={(edge, c) => c.source && c.target && c.source !== c.target && props.onReconnect(edge.id, c.source, c.target)}
       onNodeDragStop={(_, __, dragged) =>
         props.onMove(
           Object.fromEntries(
@@ -321,6 +333,7 @@ export function FlowCanvas(props: Props) {
             onAddEnd={props.onAddEnd}
             onTidy={props.onTidy}
             onAnnotate={props.onAnnotate}
+            onExport={props.onExport}
             compact={props.compact}
             reserve={props.bottomRight}
             fit={fitPadding(props.insets)}
@@ -361,5 +374,6 @@ export function FlowCanvas(props: Props) {
         </Panel>
       )}
     </ReactFlow>
+    </NodeActionsContext.Provider>
   );
 }

@@ -32,12 +32,13 @@ const LABEL_STYLE: Record<EdgeKind, string> = {
 /**
  * Smooth-step edge. The label sits where the edge turns towards its target: branches from one node fan out
  * horizontally there and edges from different ranks turn at different heights, so labels rarely collide.
- * The insert button sits on the last stretch before the target of a selected edge.
+ * A selected edge offers "insert a step": inside its label when it has one, otherwise at the middle of the path, so the
+ * button never covers the two end handles used to drag the edge onto another node.
  */
 function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, data, selected }: EdgeProps<CanvasEdge>) {
-  const [path, , turnY] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 14, offset: 24 });
-  const insertY = (turnY + targetY) / 2;
+  const [path, midX, turnY] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 14, offset: 24 });
   if (!data) return null;
+  const insert = selected && data.onInsert ? data.onInsert : undefined;
   const color = edgeColor(data);
   const emphasised = data.tone !== 'normal';
   const drawing = data.motion === 'enter';
@@ -67,7 +68,8 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
             <div
               style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${turnY}px)` }}
               className={cx(
-                'nodrag nopan pointer-events-auto absolute max-w-[220px] cursor-pointer truncate rounded-full border px-2.5 py-0.5 text-[11px] leading-5 font-medium shadow-sm',
+                'nodrag nopan pointer-events-auto absolute flex max-w-[240px] cursor-pointer items-center gap-1 rounded-full border py-0.5 pl-2.5 text-[11px] leading-5 font-medium shadow-sm',
+                insert ? 'pr-0.5' : 'pr-2.5',
                 LABEL_STYLE[data.kind],
                 drawing && 'af-label-enter',
                 data.motion === 'leave' && 'af-leave',
@@ -75,30 +77,40 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
                 data.tone === 'invalid' && 'border-rose-300 text-rose-700',
               )}
             >
-              {data.label}
+              <span className="truncate">{data.label}</span>
+              {insert && <InsertButton onInsert={insert} small />}
             </div>
           </Tooltip>
         )}
-        {selected && data.onInsert && (
+        {insert && !data.label && (
           // Positioned by the wrapper: CSS `scale` composes after `transform`, so scaling this element would scale its offset too.
-          <div style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${insertY}px)` }} className="nodrag nopan pointer-events-auto absolute">
-            <Tooltip content="Insert a step">
-              <button
-                type="button"
-                aria-label="Insert a step"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  data.onInsert?.();
-                }}
-                className="grid size-6 place-items-center rounded-full bg-indigo-600 text-white shadow-md ring-4 ring-white transition-transform hover:scale-110"
-              >
-                <Plus size={14} strokeWidth={2.5} />
-              </button>
-            </Tooltip>
+          <div style={{ transform: `translate(-50%, -50%) translate(${midX}px, ${turnY}px)` }} className="nodrag nopan pointer-events-auto absolute">
+            <InsertButton onInsert={insert} />
           </div>
         )}
       </EdgeLabelRenderer>
     </>
+  );
+}
+
+function InsertButton({ onInsert, small }: { onInsert: () => void; small?: boolean }) {
+  return (
+    <Tooltip content="Insert a step">
+      <button
+        type="button"
+        aria-label="Insert a step"
+        onClick={(e) => {
+          e.stopPropagation();
+          onInsert();
+        }}
+        className={cx(
+          'grid shrink-0 place-items-center rounded-full bg-indigo-600 text-white transition-transform hover:scale-110',
+          small ? 'size-5' : 'size-6 shadow-md ring-4 ring-white',
+        )}
+      >
+        <Plus size={small ? 12 : 14} strokeWidth={2.5} />
+      </button>
+    </Tooltip>
   );
 }
 
