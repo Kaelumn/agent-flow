@@ -147,7 +147,8 @@ export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }
               <Field label="Save the result as" hint="Later steps use it as {{name.field}}. Leave empty if nothing needs it.">
                 <Input value={draft.outputKey} onChange={(e) => set('outputKey', e.target.value)} placeholder="e.g. new_user" className="font-mono" />
               </Field>
-              <OutputsEditor outputs={draft.outputs} onChange={(v) => set('outputs', v)} />
+              {/* A tool's result has the tool's own shape; fields an agent already listed stay visible so nothing is hidden. */}
+              {(draft.mode !== 'tool' || draft.outputs.length > 0) && <OutputsEditor outputs={draft.outputs} onChange={(v) => set('outputs', v)} />}
             </Section>
 
             <Section title="If the step fails">
