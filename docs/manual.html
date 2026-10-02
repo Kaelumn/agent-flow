@@ -296,7 +296,7 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
         </div>
         <div class="feature">
           <h3>手动编辑</h3>
-          <p>拖线连接、拖到空白处新建步骤、在连线上插入步骤、可搜索的工具和 skill 选择器、带引用补全的参数编辑、拖动时自动对齐、一键整理布局。</p>
+          <p>拖线连接、拖动端点改接连线、在连线上插入步骤、选中节点后的快捷工具条（加一步、复制、删除）、可搜索的工具和 skill 选择器、带引用补全的参数编辑、拖动时自动对齐、一键整理布局、导出 PNG。</p>
         </div>
         <div class="feature">
           <h3>建图时校验</h3>
@@ -354,13 +354,16 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
             <tr><td>移动画布</td><td>滚轮上下滚动，<kbd>Shift</kbd> + 滚轮左右滚动；按住 <kbd>Space</kbd> 或鼠标中键拖动</td></tr>
             <tr><td>缩放</td><td><kbd>Ctrl</kbd> + 滚轮，或触控板双指捏合；工具栏的百分比按钮适应屏幕</td></tr>
             <tr><td>连接两个步骤</td><td>悬停节点，从底部圆点拖到另一个节点</td></tr>
+            <tr><td>改接连线</td><td>选中连线，两端出现小圆点，把任一端拖到另一个节点上松开。出错跳转（红色虚线）在步骤的失败处理里改</td></tr>
             <tr><td>接着加一步</td><td>从节点底部圆点拖到空白处松开</td></tr>
-            <tr><td>在中间插入一步</td><td>选中连线，点中间的 <kbd>+</kbd>；或在连线面板点 Insert step</td></tr>
+            <tr><td>在中间插入一步</td><td>选中连线，点条件标签右侧的 <kbd>+</kbd>（没有标签的连线在线段中间）；或在连线面板点 Insert step</td></tr>
+            <tr><td>快捷操作</td><td>选中节点，上方浮出工具条：<strong>加一步</strong>（后面只有一条线时插在中间，否则在正下方新建分支）、<strong>复制</strong>（副本放在右侧，不带连线和输出键）、<strong>删除</strong></td></tr>
             <tr><td>编辑步骤</td><td>点击节点，在属性面板的“Carried out with”里选 Tool、Skill 或 Agent；工具步骤填参数（输入 <kbd>{{</kbd> 弹出可用引用），Skill 和 Agent 步骤可列出期望字段；设置失败处理</td></tr>
             <tr><td>对齐</td><td>拖动节点靠近相连节点的中线时自动吸附，连线保持笔直</td></tr>
             <tr><td>整理布局</td><td>工具栏 Tidy：按连接关系重排所有节点并对齐网格，会覆盖手动调整过的位置</td></tr>
             <tr><td>总览</td><td>右下角小地图，面板收起时显示，可拖动定位</td></tr>
-            <tr><td>删除</td><td>选中后按 <kbd>Delete</kbd>，删除步骤前会确认</td></tr>
+            <tr><td>删除</td><td>选中后按 <kbd>Delete</kbd>，或点节点上方工具条的删除；删除步骤前会确认</td></tr>
+            <tr><td>导出图片</td><td>工具栏最右侧的按钮，把整张流程图（不只是屏幕上可见的部分）下载为 PNG，2 倍清晰度，文件名为流程名</td></tr>
             <tr><td>收起面板</td><td><kbd>Esc</kbd>，或点击空白画布</td></tr>
             <tr><td>开始标注</td><td><kbd>A</kbd>，或工具栏 Annotate</td></tr>
           </tbody>
@@ -550,6 +553,10 @@ npm start -w @agent-flow/server   # 同时提供 /api、/mcp 和打包后的画�
       <details>
         <summary>分支条件里能写 {{引用}} 吗？</summary>
         <p>不能。条件用自然语言描述刚拿到的数据，例如“账号不存在”；条件里的引用既不校验也不填值。</p>
+      </details>
+      <details>
+        <summary>怎么把流程图发给客户或放进文档？</summary>
+        <p>点工具栏最右侧的导出按钮，得到整张流程图的 PNG。图里只有流程本身，不含工具栏、小地图和面板。流程很大时会自动降低清晰度，保证图片能生成。</p>
       </details>
       <details>
         <summary>标注会保存吗？发错了怎么办？</summary>
