@@ -1,13 +1,12 @@
 import type { GraphSummary } from '@agent-flow/core';
-import { Workflow } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from './api/client';
 import { subscribe } from './api/events';
 import type { Identity } from './auth';
-import { Button, Empty, Field, Input, Modal, Textarea, useConfirm, useToast } from './components/ui';
+import { Button, Field, Input, Modal, Textarea, useConfirm, useToast } from './components/ui';
 import { embeddingHost } from './editor/annotate/message';
 import { Editor } from './editor/Editor';
-import { Sidebar } from './Sidebar';
+import { FlowsHome } from './FlowsHome';
 
 const routeId = () => location.hash.match(/^#\/flows\/([\w-]+)/)?.[1] ?? null;
 const navigate = (id: string | null) => {
@@ -45,16 +44,10 @@ export function App({ identity, signOut }: { identity: Identity; signOut: () => 
 
   return (
     <div className="flex h-full">
-      <Sidebar flows={flows} current={current} identity={identity} onCreate={() => setCreating(true)} onArchive={archive} onSignOut={signOut} />
-
       {current ? (
-        <Editor key={current} graphId={current} hostOrigin={hostOrigin} onGone={() => navigate(null)} />
+        <Editor key={current} graphId={current} hostOrigin={hostOrigin} onGone={() => navigate(null)} onBack={hostOrigin ? undefined : () => navigate(null)} />
       ) : (
-        <main className="grid flex-1 place-items-center bg-slate-50">
-          <Empty icon={<Workflow size={20} />} title="Choose a flow">
-            Pick a flow on the left, create one, or let your agent build it through the MCP endpoint at <code className="font-mono">/mcp</code>.
-          </Empty>
-        </main>
+        <FlowsHome flows={flows} identity={identity} onOpen={navigate} onCreate={() => setCreating(true)} onArchive={archive} onSignOut={signOut} />
       )}
 
       {creating && (

@@ -1,7 +1,7 @@
 import type { GraphDoc } from '@agent-flow/core';
 import { Panel, useReactFlow, useStore, useViewport } from '@xyflow/react';
 import { Copy, Send, SquareDashedMousePointer, Trash2 } from 'lucide-react';
-import { useEffect, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from 'react';
 import { Button, IconButton, Textarea, useConfirm } from '../../components/ui';
 import type { CanvasEdge } from '../canvas/edges';
 import type { CanvasNode } from '../canvas/nodes';
@@ -39,6 +39,10 @@ export function AnnotationLayer({ doc, mode, onSend, onExit }: Props) {
   const confirm = useConfirm();
   const [items, setItems] = useState<Annotation[]>([]);
   const [drag, setDrag] = useState<{ from: Point; to: Point; screen: Point } | null>(null);
+  /** Last pointer position while panning with Space or the middle button held; a ref, as moves outpace renders. */
+  const pan = useRef<Point | null>(null);
+  const [panning, setPanning] = useState(false);
+  const [spaceHeld, setSpaceHeld] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -79,24 +83,53 @@ export function AnnotationLayer({ doc, mode, onSend, onExit }: Props) {
   };
 
   useEffect(() => {
+    const typing = (e: KeyboardEvent) => e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key === ' ' && !typing(e)) {
+        e.preventDefault();
+        setSpaceHeld(e.type === 'keydown');
+      }
+      if (e.type !== 'keydown' || e.key !== 'Escape') return;
       if (editing) finishEditing();
       else void exit();
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
   });
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    finishEditing();
+    const startPan = e.button === 1 || (e.button === 0 && spaceHeld);
+    if (e.button !== 0 && !startPan) return;
+    e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    if (startPan) {
+      pan.current = { x: e.clientX, y: e.clientY };
+      return setPanning(true);
+    }
+    finishEditing();
     const at = toFlow(e);
     setDrag({ from: at, to: at, screen: { x: e.clientX, y: e.clientY } });
   };
 
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (pan.current) {
+      const { x, y, zoom } = rf.getViewport();
+      void rf.setViewport({ x: x + e.clientX - pan.current.x, y: y + e.clientY - pan.current.y, zoom });
+      pan.current = { x: e.clientX, y: e.clientY };
+    } else if (drag) {
+      setDrag({ ...drag, to: toFlow(e) });
+    }
+  };
+
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (pan.current) {
+      pan.current = null;
+      return setPanning(false);
+    }
     if (!drag) return;
     setDrag(null);
     const current = shapes();
@@ -110,11 +143,16 @@ export function AnnotationLayer({ doc, mode, onSend, onExit }: Props) {
     setEditing(annotation.id);
   };
 
-  // Wheel zooms around the pointer, as on the canvas underneath.
+  // As on the canvas underneath: the wheel scrolls (Shift for sideways), Ctrl + wheel or a pinch zooms at the pointer.
   const onWheel = (e: WheelEvent<HTMLDivElement>) => {
     if (!domNode) return;
     const { x, y, zoom } = rf.getViewport();
-    const next = Math.min(maxZoom, Math.max(minZoom, zoom * 2 ** (-e.deltaY * 0.002)));
+    if (!e.ctrlKey && !e.metaKey) {
+      const [dx, dy] = e.shiftKey && !e.deltaX ? [e.deltaY, 0] : [e.deltaX, e.deltaY];
+      void rf.setViewport({ x: x - dx, y: y - dy, zoom });
+      return;
+    }
+    const next = Math.min(maxZoom, Math.max(minZoom, zoom * 2 ** Math.max(-1, Math.min(1, -e.deltaY * 0.01))));
     const bounds = domNode.getBoundingClientRect();
     const px = e.clientX - bounds.left;
     const py = e.clientY - bounds.top;
@@ -127,9 +165,9 @@ export function AnnotationLayer({ doc, mode, onSend, onExit }: Props) {
   return (
     <>
       <div
-        className="absolute inset-0 z-[4] cursor-crosshair touch-none bg-slate-900/[0.03]"
+        className={`absolute inset-0 z-[4] touch-none bg-slate-900/[0.03] ${panning ? 'cursor-grabbing' : spaceHeld ? 'cursor-grab' : 'cursor-crosshair'}`}
         onPointerDown={onPointerDown}
-        onPointerMove={(e) => drag && setDrag({ ...drag, to: toFlow(e) })}
+        onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onWheel={onWheel}
       >
@@ -186,17 +224,17 @@ export function AnnotationLayer({ doc, mode, onSend, onExit }: Props) {
       </div>
 
       {!items.length && !drag && (
-        <Panel position="top-center" className="!mt-5">
+        <Panel position="top-center" className="!mt-[68px]">
           <div className="pointer-events-none flex items-center gap-2 whitespace-nowrap rounded-full border border-orange-200 bg-white/95 px-4 py-2 text-[12.5px] text-slate-600 shadow-lg shadow-slate-900/5 backdrop-blur">
             <SquareDashedMousePointer size={15} className="text-orange-500" />
-            Drag a box around what needs to change, or click a step. <kbd className="rounded border border-slate-200 px-1 font-sans text-[10.5px] text-slate-400">Esc</kbd> to leave.
+            Box what needs to change, or click a step · Scroll or hold <Key>Space</Key> to move · <Key>Esc</Key> to leave
           </div>
         </Panel>
       )}
 
       <Panel position="bottom-center" className="!mb-5">
         <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white/95 py-1.5 pr-1.5 pl-3.5 shadow-lg shadow-slate-900/5 backdrop-blur">
-          <span className="flex items-center gap-2 text-[12.5px] font-medium text-slate-700">
+          <span className="flex items-center gap-2 text-[12.5px] font-medium whitespace-nowrap text-slate-700">
             <SquareDashedMousePointer size={15} className="text-orange-500" />
             Annotating
             <span className="font-normal text-slate-400 tabular-nums">· {ready.length} {ready.length === 1 ? 'note' : 'notes'}</span>
@@ -212,3 +250,5 @@ export function AnnotationLayer({ doc, mode, onSend, onExit }: Props) {
     </>
   );
 }
+
+const Key = ({ children }: { children: string }) => <kbd className="rounded border border-slate-200 px-1 font-sans text-[10.5px] text-slate-400">{children}</kbd>;

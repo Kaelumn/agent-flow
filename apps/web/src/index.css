@@ -66,6 +66,14 @@ body {
   stroke-dasharray: 6 5;
 }
 
+/* The default open-hand cursor is a white glyph that disappears on the light canvas: arrow until a drag starts. */
+.af-canvas .react-flow__pane.draggable {
+  cursor: default;
+}
+.af-canvas .react-flow__pane.dragging {
+  cursor: grabbing;
+}
+
 .af-canvas .react-flow__node {
   cursor: pointer;
 }
@@ -147,5 +155,18 @@ body {
 @keyframes af-dash {
   to {
     stroke-dashoffset: -11;
+  }
+}
+
+/* ---- Floating dock */
+
+.af-dock {
+  animation: af-dock-in 160ms ease-out;
+}
+
+@keyframes af-dock-in {
+  from {
+    opacity: 0;
+    translate: 8px 0;
   }
 }

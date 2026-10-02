@@ -33,6 +33,23 @@ export interface RunTrace {
   edges: Set<string>;
 }
 
+/** Canvas covered by floating chrome, in screen pixels: the header bar on top, the dock on the right or bottom. */
+export interface Insets {
+  right: number;
+  bottom: number;
+}
+
+const HEADER_SPACE = 68;
+const TOOLBAR_SPACE = 76;
+
+/** Fit padding that keeps the flow clear of the floating chrome. */
+export const fitPadding = (insets: Insets) => ({ top: `${HEADER_SPACE}px`, left: '24px', right: `${insets.right + 24}px`, bottom: `${Math.max(insets.bottom, TOOLBAR_SPACE) + 16}px` }) as const;
+
+/** Centres a flow point in the uncovered part of the canvas. */
+export function centerOn(rf: CanvasInstance, x: number, y: number, insets: Insets, zoom = rf.getZoom()) {
+  return rf.setCenter(x + insets.right / 2 / zoom, y + (insets.bottom - HEADER_SPACE) / 2 / zoom, { zoom, duration: 300 });
+}
+
 interface Props {
   doc: GraphDoc;
   issues: Issue[];
@@ -57,13 +74,18 @@ interface Props {
   onReady: (instance: CanvasInstance) => void;
   /** Viewing a published version: selection only. */
   readOnly?: boolean;
+  insets: Insets;
+  /** A narrow canvas: icon-only toolbar. */
+  compact: boolean;
+  /** Only where there is room beside the toolbar. */
+  minimap: boolean;
 }
 
 const JUMP_PREFIX = 'jump:';
 const MINIMAP_COLOR = { start: '#10b981', tool: '#6366f1', end: '#94a3b8' } as const;
 /** After the reviewer pans or zooms, playback stops moving the view for this long. */
 const HANDS_OFF_MS = 3000;
-const FOLLOW_MARGIN = 60;
+const FOLLOW_MARGIN = 32;
 
 const ease = (t: number) => 1 - (1 - t) ** 3;
 
@@ -79,8 +101,10 @@ export function FlowCanvas(props: Props) {
    */
   const follow = (ids: string[] | null) => {
     const rf = instance.current;
-    const bounds = wrapper.current?.getBoundingClientRect();
-    if (!rf || !bounds || Date.now() - userMovedAt.current < HANDS_OFF_MS) return;
+    const rect = wrapper.current?.getBoundingClientRect();
+    if (!rf || !rect || Date.now() - userMovedAt.current < HANDS_OFF_MS) return;
+    const { insets } = props;
+    const bounds = { left: rect.left, top: rect.top + HEADER_SPACE, right: rect.right - insets.right, bottom: rect.bottom - Math.max(insets.bottom, TOOLBAR_SPACE) };
     const box = (list: CanvasNode[]) => {
       const rects = list.map((n) => ({ ...n.position, ...nodeSize(n.data.node.type) }));
       const x = Math.min(...rects.map((r) => r.x));
@@ -94,7 +118,7 @@ export function FlowCanvas(props: Props) {
         const [a, b] = corners(box([n]));
         return !n.hidden && b.x > bounds.left && a.x < bounds.right && b.y > bounds.top && a.y < bounds.bottom;
       });
-      if (!onScreen) void rf.fitView({ padding: 0.2, maxZoom: 1, duration: 400 });
+      if (!onScreen) void rf.fitView({ padding: fitPadding(insets), maxZoom: 1, duration: 400 });
       return;
     }
     const shown = ids.flatMap((id) => rf.getNode(id) ?? []);
@@ -102,7 +126,7 @@ export function FlowCanvas(props: Props) {
     const target = box(shown);
     const [a, b] = corners(target);
     const inside = a.x > bounds.left + FOLLOW_MARGIN && b.x < bounds.right - FOLLOW_MARGIN && a.y > bounds.top + FOLLOW_MARGIN && b.y < bounds.bottom - FOLLOW_MARGIN;
-    if (!inside) void rf.setCenter(target.x + target.width / 2, target.y + target.height / 2, { zoom: rf.getZoom(), duration: 350 });
+    if (!inside) void centerOn(rf, target.x + target.width / 2, target.y + target.height / 2, insets);
   };
   const playback = useLivePlayback(props.live, follow);
 
@@ -253,7 +277,8 @@ export function FlowCanvas(props: Props) {
       snapToGrid
       snapGrid={[8, 8]}
       fitView
-      fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
+      fitViewOptions={{ padding: fitPadding(props.insets), maxZoom: 1 }}
+      panOnScroll
       minZoom={0.15}
       maxZoom={1.75}
       className="af-canvas"
@@ -262,20 +287,33 @@ export function FlowCanvas(props: Props) {
       {annotate ? (
         <AnnotationLayer doc={doc} mode={annotate.mode} onSend={annotate.onSend} onExit={annotate.onExit} />
       ) : (
-        <Toolbar readOnly={readOnly} onAddStep={props.onAddStep} onAddEnd={props.onAddEnd} onTidy={props.onTidy} onAnnotate={props.onAnnotate} />
+        !props.insets.bottom && (
+          <Toolbar
+            readOnly={readOnly}
+            onAddStep={props.onAddStep}
+            onAddEnd={props.onAddEnd}
+            onTidy={props.onTidy}
+            onAnnotate={props.onAnnotate}
+            compact={props.compact}
+            shift={props.insets.right / 2}
+            fit={fitPadding(props.insets)}
+          />
+        )
       )}
-      <MiniMap
-        pannable
-        zoomable
-        position="bottom-right"
-        className="!mr-4 !mb-5 overflow-hidden rounded-xl border border-slate-200 shadow-lg shadow-slate-900/5"
-        style={{ width: 176, height: 116 }}
-        maskColor="rgba(241, 245, 249, 0.7)"
-        nodeColor={(n) => MINIMAP_COLOR[n.type as keyof typeof MINIMAP_COLOR] ?? '#94a3b8'}
-        nodeBorderRadius={6}
-      />
+      {props.minimap && (
+        <MiniMap
+          pannable
+          zoomable
+          position="bottom-left"
+          className="!mb-4 !ml-3 overflow-hidden rounded-xl border border-slate-200 shadow-lg shadow-slate-900/5"
+          style={{ width: 176, height: 116 }}
+          maskColor="rgba(241, 245, 249, 0.7)"
+          nodeColor={(n) => MINIMAP_COLOR[n.type as keyof typeof MINIMAP_COLOR] ?? '#94a3b8'}
+          nodeBorderRadius={6}
+        />
+      )}
       {playback.actor && !annotate && (
-        <Panel position="top-left" className="!mt-4 !ml-4">
+        <Panel position="top-left" className="!mt-[64px] !ml-3">
           <div className="flex items-center gap-2 whitespace-nowrap rounded-full border border-indigo-200 bg-white/95 px-3.5 py-1.5 text-[12.5px] font-medium text-slate-700 shadow-lg shadow-slate-900/5 backdrop-blur">
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-indigo-400 opacity-75" />
@@ -286,7 +324,7 @@ export function FlowCanvas(props: Props) {
         </Panel>
       )}
       {isBlank && editable && !playback.actor && (
-        <Panel position="top-center" className="!mt-6">
+        <Panel position="top-center" className="!mt-[68px]" style={{ marginLeft: -props.insets.right / 2 }}>
           <div className="flex max-w-md items-start gap-3 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg shadow-slate-900/5 backdrop-blur">
             <MousePointerClick size={18} className="mt-0.5 shrink-0 text-indigo-500" />
             <div className="text-[13px] leading-relaxed text-slate-600">

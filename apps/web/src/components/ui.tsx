@@ -61,7 +61,7 @@ export function IconButton({ label, className, ...props }: ButtonHTMLAttributes<
  * Hover hint for a single child element. Rendered in a portal with fixed positioning, so it is never clipped
  * by scrolling panels and ignores canvas zoom.
  */
-export function Tooltip({ content, side = 'top', children }: { content: ReactNode; side?: 'top' | 'bottom'; children: ReactNode }) {
+export function Tooltip({ content, side = 'top', children }: { content: ReactNode; side?: 'top' | 'bottom' | 'left'; children: ReactNode }) {
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const hide = () => {
@@ -73,7 +73,7 @@ export function Tooltip({ content, side = 'top', children }: { content: ReactNod
     timer.current = window.setTimeout(() => {
       if (!el?.isConnected) return;
       const r = el.getBoundingClientRect();
-      setAt({ x: r.left + r.width / 2, y: side === 'top' ? r.top - 8 : r.bottom + 8 });
+      setAt(side === 'left' ? { x: r.left - 8, y: r.top + r.height / 2 } : { x: r.left + r.width / 2, y: side === 'top' ? r.top - 8 : r.bottom + 8 });
     }, 300);
   };
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -88,7 +88,8 @@ export function Tooltip({ content, side = 'top', children }: { content: ReactNod
             role="tooltip"
             style={{ left: at.x, top: at.y }}
             className={cx(
-              'af-tooltip pointer-events-none fixed z-[100] -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[11.5px] leading-4 font-medium whitespace-nowrap text-white shadow-lg shadow-slate-900/20',
+              'af-tooltip pointer-events-none fixed z-[100] rounded-md bg-slate-900 px-2 py-1 text-[11.5px] leading-4 font-medium whitespace-nowrap text-white shadow-lg shadow-slate-900/20',
+              side === 'left' ? '-translate-x-full -translate-y-1/2' : '-translate-x-1/2',
               side === 'top' && '-translate-y-full',
             )}
           >
