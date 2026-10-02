@@ -206,7 +206,7 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
       <p>Agent Flow 不是一个新的 agent，也不是工作流引擎。它是你现有 agent 旁边的“流程本”：agent 通过 MCP 读写流程图、按图执行；人通过画布查看和修改同一张图。</p>
       <figure>
         <div class="diagram">
-          <svg viewBox="0 0 580 412" role="img" aria-label="业务架构：人在 MSPbots 页面里用对话和画布，agent 通过 MCP 建图和按图执行，自己调用 MSP 系统的工具；Agent Flow 把变更推送到画布，并读取工具目录。">
+          <svg viewBox="0 0 580 412" role="img" aria-label="业务架构：人在 MSPbots 页面里用对话和画布，agent 通过 MCP 建图和按图执行，自己调用 MSP 系统的工具；Agent Flow 把变更推送到画布，并读取工具与 skill 清单。">
             <defs>
               <marker id="biz-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -250,18 +250,18 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
             <text x="500" y="164" font-size="11" fill="currentColor">人工修改</text>
 
             <line x1="144" y1="274" x2="144" y2="335" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
-            <text x="152" y="309" font-size="11" fill="currentColor">调用工具</text>
+            <text x="152" y="309" font-size="11" fill="currentColor">调用工具 · 加载 skill</text>
             <rect x="24" y="338" width="240" height="62" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
-            <text x="144" y="364" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">MSP 系统</text>
-            <text x="144" y="386" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.7">Autotask · M365 · Teams</text>
+            <text x="144" y="364" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">MSP 系统 · MSPbots</text>
+            <text x="144" y="386" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.7">Autotask · M365 · Teams · skills</text>
 
             <polyline points="460,274 460,369 268,369" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" stroke-opacity="0.7" marker-end="url(#biz-arrow)"/>
-            <text x="364" y="361" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.8">读取工具目录</text>
+            <text x="364" y="361" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.8">读取工具与 skill 清单</text>
           </svg>
         </div>
-        <figcaption>业务架构。人只在 MSPbots 页面里工作：左边对话，右边画布。agent 是唯一调用 MSP 系统的一方；Agent Flow 不碰业务数据，只读取工具目录（虚线），负责存图、校验和逐步把关，并把每次变更实时推送到画布。</figcaption>
+        <figcaption>业务架构。人只在 MSPbots 页面里工作：左边对话，右边画布。agent 是唯一调用工具、加载 skill 的一方；Agent Flow 不碰业务数据，只读取工具和 skill 的清单（虚线），负责存图、校验和逐步把关，并把每次变更实时推送到画布。</figcaption>
       </figure>
-      <p class="muted">工具（Autotask、Microsoft 365、Teams 等）仍由 agent 自己调用；Agent Flow 只决定“下一步做什么、能走哪条线”，并记录每一步的结果。</p>
+      <p class="muted">工具（Autotask、Microsoft 365、Teams 等）和 skill 仍由 agent 自己调用；Agent Flow 只决定“下一步做什么、能走哪条线”，并记录每一步的结果。</p>
     </section>
 
     <section id="concepts">
@@ -272,7 +272,7 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
           <tbody>
             <tr><td>流程（Flow）</td><td>一套 SOP。有一份可编辑的<strong>草稿</strong>和若干已发布的<strong>版本</strong>。描述里写用途、适用范围和固定参数（比如各办公室对应的邮件组）。</td></tr>
             <tr><td>开始节点</td><td>每个流程一个，声明运行时要传入的参数，例如 <code>ticket_id</code>。</td></tr>
-            <tr><td>步骤</td><td>一次工具调用。包含：调用哪个工具、每个参数从哪来、给 agent 的指引、结果存成什么名字（输出键），以及失败时怎么办。</td></tr>
+            <tr><td>步骤</td><td>流程里的一件事，三种做法选一：<strong>调用工具</strong>（选工具、写明每个参数从哪来）、<strong>按 skill 执行</strong>（选 MSPbots 平台的一个 skill），或<strong>交给 agent</strong>（都不选，agent 按指引自己完成，比如分类、提取、起草）。另外包含给 agent 的指引、结果存成什么名字（输出键）、期望产出哪些字段（可选，只作提示），以及失败时怎么办。</td></tr>
             <tr><td>结束节点</td><td>业务结果：<code>completed</code> 完成、<code>stopped</code> 无需处理、<code>failed</code> 失败。</td></tr>
             <tr><td>连线与分支</td><td>一个步骤有多条出线时，每条写一句自然语言条件，由 agent 根据刚拿到的数据判断；最多一条标为默认（Otherwise）。</td></tr>
             <tr><td>引用</td><td><code>{{input.名称}}</code> 取运行参数，<code>{{输出键.字段}}</code> 取前面步骤的结果。校验器检查来源存在且一定先执行，运行时自动填值。</td></tr>
@@ -296,7 +296,7 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
         </div>
         <div class="feature">
           <h3>手动编辑</h3>
-          <p>拖线连接、拖到空白处新建步骤、在连线上插入步骤、可搜索的工具选择器、带引用补全的参数编辑、一键整理布局。</p>
+          <p>拖线连接、拖到空白处新建步骤、在连线上插入步骤、可搜索的工具和 skill 选择器、带引用补全的参数编辑、拖动时自动对齐、一键整理布局。</p>
         </div>
         <div class="feature">
           <h3>建图时校验</h3>
@@ -315,8 +315,8 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
           <p>flow-runner skill 驱动 agent 逐步执行：服务端给出当前步骤、已填好的参数和可选出线，拒绝乱序；画布可回放每次运行的轨迹。</p>
         </div>
         <div class="feature">
-          <h3>实时工具目录</h3>
-          <p>直接从你配置的 MCP 服务读取工具及参数结构，按工具的只读标记区分“读”和“写”。</p>
+          <h3>工具、skill 或 agent</h3>
+          <p>每个步骤可以调用工具、按 skill 执行，或交给 agent 按指引完成。工具从你配置的 MCP 服务实时读取并区分“读”和“写”，skill 清单来自 MSPbots 平台。</p>
         </div>
       </div>
     </section>
@@ -356,8 +356,10 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
             <tr><td>连接两个步骤</td><td>悬停节点，从底部圆点拖到另一个节点</td></tr>
             <tr><td>接着加一步</td><td>从节点底部圆点拖到空白处松开</td></tr>
             <tr><td>在中间插入一步</td><td>选中连线，点中间的 <kbd>+</kbd>；或在连线面板点 Insert step</td></tr>
-            <tr><td>编辑步骤</td><td>点击节点，在属性面板里选工具、填参数（输入 <kbd>{{</kbd> 弹出可用引用）、设置失败处理</td></tr>
-            <tr><td>整理布局</td><td>工具栏 Tidy</td></tr>
+            <tr><td>编辑步骤</td><td>点击节点，在属性面板的“Carried out with”里选 Tool、Skill 或 Agent；工具步骤填参数（输入 <kbd>{{</kbd> 弹出可用引用），Skill 和 Agent 步骤可列出期望字段；设置失败处理</td></tr>
+            <tr><td>对齐</td><td>拖动节点靠近相连节点的中线时自动吸附，连线保持笔直</td></tr>
+            <tr><td>整理布局</td><td>工具栏 Tidy：按连接关系重排所有节点并对齐网格，会覆盖手动调整过的位置</td></tr>
+            <tr><td>总览</td><td>右下角小地图，面板收起时显示，可拖动定位</td></tr>
             <tr><td>删除</td><td>选中后按 <kbd>Delete</kbd>，删除步骤前会确认</td></tr>
             <tr><td>收起面板</td><td><kbd>Esc</kbd>，或点击空白画布</td></tr>
             <tr><td>开始标注</td><td><kbd>A</kbd>，或工具栏 Annotate</td></tr>
@@ -388,8 +390,8 @@ Read the flow with flow_get, apply the changes to the draft, then summarise what
       <p>草稿通过校验后点 Publish，写一句这一版改了什么。运行永远使用最新发布的版本，草稿可以继续改，不影响正在跑的流程。</p>
       <h3>agent 怎么按图执行</h3>
       <ol class="steps">
-        <li><div><code>run_start</code><p>传入流程和参数，拿到第一步：要调的工具、已填好的参数（<code>resolvedArgs</code>）、指引和可选出线。</p></div></li>
-        <li><div>agent 自己调用该工具<p>用 MSPbots 里已有的工具连接，Agent Flow 不代为调用。</p></div></li>
+        <li><div><code>run_start</code><p>传入流程和参数，拿到第一步：要调的工具或要用的 skill、已填好的参数（<code>resolvedArgs</code>）、指引、期望字段和可选出线。</p></div></li>
+        <li><div>agent 完成这一步<p>调用指定的工具、加载指定的 skill，或按指引自己完成。Agent Flow 不代为执行，只告诉 agent 用哪种方式、期望产出什么。</p></div></li>
         <li><div><code>run_submit</code><p>上报结果（成功、失败或跳过）和选择的出线。服务端检查出线是否属于当前步骤，再给出下一步。</p></div></li>
         <li><div>重复直到结束节点<p>每一步都留在运行记录里，画布可以回放轨迹，失败的步骤标红。</p></div></li>
       </ol>
@@ -420,7 +422,7 @@ Read the flow with flow_get, apply the changes to the draft, then summarise what
       <p>画布和 agent 从两个入口进来，落到同一套服务和同一份数据上。所有写操作都转成 Op，走同一条路径：校验、乐观锁、修改历史、推送。</p>
       <figure>
         <div class="diagram">
-          <svg viewBox="0 0 760 478" role="img" aria-label="技术架构：浏览器画布经 REST 读写、经 SSE 收推送；agent 经 MCP 调用；三者进入 Fastify 的 services，services 经 repositories 和 Kysely 写入 MySQL 或 PostgreSQL，经事件总线推送到 SSE，并从工具 MCP 服务定时刷新工具目录。">
+          <svg viewBox="0 0 760 478" role="img" aria-label="技术架构：浏览器画布经 REST 读写、经 SSE 收推送；agent 经 MCP 调用；三者进入 Fastify 的 services，services 经 repositories 和 Kysely 写入 MySQL 或 PostgreSQL，经事件总线推送到 SSE，并定时刷新工具目录和 skill 清单。">
             <defs>
               <marker id="tech-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                 <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -455,13 +457,13 @@ Read the flow with flow_get, apply the changes to the draft, then summarise what
             <rect x="40" y="306" width="340" height="44" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
             <text x="210" y="333" font-size="12" text-anchor="middle" fill="currentColor">repositories · Kysely（只在这一层写 SQL）</text>
             <rect x="400" y="306" width="320" height="44" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
-            <text x="560" y="333" font-size="12" text-anchor="middle" fill="currentColor">工具目录（定时刷新，失败保留上次）</text>
+            <text x="560" y="333" font-size="12" text-anchor="middle" fill="currentColor">工具与 skill 目录（定时刷新）</text>
 
             <rect x="40" y="410" width="340" height="52" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
             <text x="210" y="433" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">MySQL / PostgreSQL</text>
             <text x="210" y="451" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.7">graphs · versions · events · runs · steps</text>
             <rect x="400" y="410" width="320" height="52" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
-            <text x="560" y="433" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">工具 MCP 服务</text>
+            <text x="560" y="433" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">工具 MCP 服务 · skill 清单</text>
             <text x="560" y="451" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.7">Autotask · Microsoft 365 · MSPbots</text>
 
             <line x1="100" y1="94" x2="100" y2="157" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
@@ -482,7 +484,7 @@ Read the flow with flow_get, apply the changes to the draft, then summarise what
             <line x1="210" y1="352" x2="210" y2="407" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
             <text x="218" y="384" font-size="11" fill="currentColor">SQL</text>
             <line x1="560" y1="352" x2="560" y2="407" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
-            <text x="568" y="384" font-size="11" fill="currentColor">tools/list</text>
+            <text x="568" y="384" font-size="11" fill="currentColor">tools/list · /skills</text>
           </svg>
         </div>
         <figcaption>技术架构。画布和 agent 的写入都进入同一个 services 层：校验用前后端共用的 <code>packages/core</code>，写库前检查修订号（乐观锁），写完把事件发到总线，再经 SSE 推给所有打开的画布。数据库方言由 <code>DB_DIALECT</code> 切换，换 PostgreSQL 不改 repository。多实例部署时，事件总线换成 Redis。</figcaption>
@@ -515,6 +517,7 @@ npm start -w @agent-flow/server   # 同时提供 /api、/mcp 和打包后的画�
             <tr><td><code>DATABASE_URL</code></td><td>数据库连接串；<code>DB_DIALECT</code> 选 <code>mysql</code> 或 <code>postgres</code></td></tr>
             <tr><td><code>AUTH_TOKENS</code></td><td><code>token:工作区:身份</code>，逗号分隔。画布和 agent 各用自己的 token</td></tr>
             <tr><td><code>TOOL_SERVERS_CONFIG</code></td><td>工具目录来源：MCP 服务列表（JSON）；也可用 <code>TOOL_CATALOG_PATH</code> 指向静态目录</td></tr>
+            <tr><td><code>SKILLS_URL</code></td><td>skill 清单地址，返回 <code>{ skills: [{ name, description }] }</code>。接入 MSPbots 平台接口前用 mock-msp 的 <code>/skills</code>；不配置则步骤只能用工具或 agent</td></tr>
             <tr><td><code>PUBLIC_WEB_URL</code></td><td>画布地址，agent 的回复里会附上画布链接</td></tr>
             <tr><td><code>EMBED_ORIGINS</code></td><td>允许嵌入画布并接收标注的页面来源，如 <code>https://app.mspbots.ai</code></td></tr>
           </tbody>
@@ -526,7 +529,7 @@ npm start -w @agent-flow/server   # 同时提供 /api、/mcp 和打包后的画�
         <table>
           <thead><tr><th>MCP 工具</th><th>用途</th></tr></thead>
           <tbody>
-            <tr><td>目录</td><td><code>tools_search</code></td></tr>
+            <tr><td>目录</td><td><code>tools_search</code> <code>skills_search</code></td></tr>
             <tr><td>建图</td><td><code>flow_list</code> <code>flow_create</code> <code>flow_get</code> <code>flow_update</code> <code>flow_add_nodes</code> <code>flow_update_node</code> <code>flow_remove_node</code> <code>flow_add_edges</code> <code>flow_update_edge</code> <code>flow_remove_edge</code> <code>flow_validate</code> <code>flow_publish</code></td></tr>
             <tr><td>运行</td><td><code>run_start</code> <code>run_current</code> <code>run_submit</code> <code>run_cancel</code> <code>run_get</code></td></tr>
           </tbody>
@@ -539,6 +542,10 @@ npm start -w @agent-flow/server   # 同时提供 /api、/mcp 和打包后的画�
       <details>
         <summary>agent 建图时返回很多“未连接”的提示，正常吗？</summary>
         <p>正常。建图过程中，修改结果的 <code>issues</code> 只列现在就是错的问题（比如工具名不存在）；还没连上、引用的步骤还没加这类，只在 <code>unfinished</code> 里计数，建完自然消失。最后用 <code>flow_validate</code> 看完整结果。</p>
+      </details>
+      <details>
+        <summary>每个步骤都必须对应一个工具吗？</summary>
+        <p>不必。判断、提取、起草这类不碰任何系统的事，选 Agent，把要做什么写在指引里；平台已有现成做法的，选 Skill。后面的步骤要用这一步的结果时，在“期望字段”里列出字段名，比如 <code>email</code>、<code>group</code>，后面就能引用 <code>{{request.email}}</code>。期望字段只是提示，运行时不检查。</p>
       </details>
       <details>
         <summary>分支条件里能写 {{引用}} 吗？</summary>
