@@ -72,7 +72,9 @@ describe('agent builds and runs a flow over MCP', () => {
   it('builds a flow through chat-style edits', async () => {
     const created = await call('flow_create', { title: 'Account check', description: 'e2e' });
     flowId = created.flowId;
-    expect(created.issues.map((i: any) => i.code)).toContain('dead_end');
+    // A new flow is unfinished, not wrong: the gap is counted, not listed.
+    expect(created.issues).toEqual([]);
+    expect(created.unfinished).toMatchObject({ dead_end: 1 });
 
     const added = await call('flow_add_nodes', {
       flowId,
@@ -97,6 +99,7 @@ describe('agent builds and runs a flow over MCP', () => {
       ],
     });
     expect(wired.issues).toEqual([]);
+    expect(wired.unfinished).toBeUndefined();
   });
 
   it('refuses stale revisions', async () => {

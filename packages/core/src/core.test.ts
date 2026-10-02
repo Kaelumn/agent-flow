@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOps, GraphDoc, interpolate, OpError, resolveRef, resolveTransition, soleRef, ToolOutcome, validateGraph, type ToolDefinition } from './index.js';
+import { applyOps, GraphDoc, interpolate, isUnfinished, OpError, resolveRef, resolveTransition, soleRef, ToolOutcome, validateGraph, type ToolDefinition } from './index.js';
 
 const tools: ToolDefinition[] = [
   {
@@ -47,8 +47,10 @@ describe('validateGraph', () => {
       { op: 'addNodes', nodes: [{ id: 'orphan', type: 'tool', title: 'Orphan', tool: { name: 'nope', argsHint: {} } }] },
       { op: 'updateEdge', edgeId: 'e3', patch: { isDefault: false } },
     ], genId).doc;
-    const codes = validateGraph(doc, lookup).map((i) => i.code);
-    expect(codes).toEqual(expect.arrayContaining(['dead_end', 'tool_unknown', 'unreachable', 'condition_missing']));
+    const issues = validateGraph(doc, lookup);
+    expect(issues.map((i) => i.code)).toEqual(expect.arrayContaining(['dead_end', 'tool_unknown', 'unreachable', 'condition_missing']));
+    // Gaps that close as building goes on are told apart from mistakes.
+    expect(issues.filter((i) => !isUnfinished(i)).map((i) => i.code)).toEqual(['tool_unknown']);
   });
 
   it('flags unknown tool parameters', () => {

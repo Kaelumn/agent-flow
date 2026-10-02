@@ -12,6 +12,13 @@ export interface Issue {
 
 export const hasErrors = (issues: Issue[]) => issues.some((i) => i.severity === 'error');
 
+/**
+ * Issues that only say the flow is not finished: steps not yet connected, or referring to steps not yet added.
+ * They clear as building goes on, so edit results count them instead of listing them; they still block publishing.
+ */
+const UNFINISHED = new Set(['end_missing', 'dead_end', 'unreachable', 'no_path_to_end', 'condition_missing', 'on_error_target', 'ref_unknown', 'ref_unavailable', 'ref_maybe_unavailable']);
+export const isUnfinished = (issue: Issue) => UNFINISHED.has(issue.code);
+
 export function validateGraph(doc: GraphDoc, lookupTool: ToolLookup): Issue[] {
   const issues: Issue[] = [];
   const error = (code: string, message: string, ref: Pick<Issue, 'nodeId' | 'edgeId'> = {}) =>
@@ -114,7 +121,7 @@ function validateToolNode(
   if (node.onError?.strategy === 'goto') {
     const target = node.onError.targetNodeId;
     if (!target || !nodes.has(target)) error('on_error_target', `"${node.title}" jumps to a missing node on error`, ref);
-    else if (target === node.id) error('on_error_target', `"${node.title}" cannot jump to itself on error`, ref);
+    else if (target === node.id) error('on_error_self', `"${node.title}" cannot jump to itself on error`, ref);
   }
 }
 

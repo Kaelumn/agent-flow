@@ -1,4 +1,4 @@
-import { EdgeInput, EdgePatch, NodeInput, NodePatch, ToolOutcome, type GraphDoc } from '@agent-flow/core';
+import { EdgeInput, EdgePatch, isUnfinished, NodeInput, NodePatch, ToolOutcome, type GraphDoc, type Issue } from '@agent-flow/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -17,7 +17,7 @@ Building a flow:
 2. flow_create, then flow_add_nodes / flow_add_edges. Give nodes readable ids (e.g. "check_user") so you can connect them in the same turn.
 3. Every node type is start, tool or end. Branches are edges with a natural-language condition; mark at most one edge per node as isDefault.
    In argsHint and instructions, refer to data with {{input.<name>}} for run inputs and {{<outputKey>.<field>}} for a result an earlier step saved with outputKey (e.g. {{new_user.id}}). The validator checks that such data exists and is produced before the step; the runner fills in the values. Give every step whose result is used later an outputKey. Keep free text only for values the agent must derive.
-4. After each change read the returned issues and fix errors. flow_publish once there are none.
+4. Each edit returns "issues" that are wrong now (unknown tool, bad argument, ...): fix them right away. "unfinished" only counts gaps that close as you keep building (steps not yet connected, references to steps not yet added). When the flow is complete, flow_validate lists everything left; flow_publish once it has no errors.
 5. Reviewers annotate the canvas and the annotations arrive in the conversation as an "[Agent Flow] … annotations" notice listing node and edge ids and the draft revision they were written against. flow_get, apply each note to the draft, then summarise what you changed per annotation.
 
 Running a flow:
@@ -68,12 +68,13 @@ function buildServer({ graphs, runs, tools }: Services, p: Principal, canvasUrl:
       }
     }) as never);
 
-  const edited = ({ graph, createdNodeIds, createdEdgeIds }: EditResult) => ({
-    revision: graph.revision,
-    createdNodeIds,
-    createdEdgeIds,
-    issues: graph.issues,
-  });
+  /** While building, list what is wrong now and only count what is merely unfinished; flow_validate lists everything. */
+  const building = (issues: Issue[]) => {
+    const unfinished: Record<string, number> = {};
+    for (const i of issues) if (isUnfinished(i)) unfinished[i.code] = (unfinished[i.code] ?? 0) + 1;
+    return { issues: issues.filter((i) => !isUnfinished(i)), ...(Object.keys(unfinished).length && { unfinished }) };
+  };
+  const edited = ({ graph, createdNodeIds, createdEdgeIds }: EditResult) => ({ revision: graph.revision, createdNodeIds, createdEdgeIds, ...building(graph.issues) });
 
   // ---- Tool catalog
   tool('tools_search', 'Find tools that flow nodes can call. Returns names, descriptions, whether they write, and parameter schemas.', {
@@ -89,7 +90,7 @@ function buildServer({ graphs, runs, tools }: Services, p: Principal, canvasUrl:
     description: z.string().optional().describe('What the SOP is for and when it applies'),
   }, async (args) => {
     const g = await graphs.create(p, args);
-    return { flowId: g.id, canvasUrl: canvasUrl(g.id), revision: g.revision, draft: compact(g.draft), issues: g.issues };
+    return { flowId: g.id, canvasUrl: canvasUrl(g.id), revision: g.revision, draft: compact(g.draft), ...building(g.issues) };
   });
 
   tool('flow_get', 'Read a flow: its draft nodes and edges, revision, latest published version and validation issues.', { flowId: FlowId }, async ({ flowId }) => {
