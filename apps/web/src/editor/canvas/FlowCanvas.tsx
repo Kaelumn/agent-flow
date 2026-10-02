@@ -40,9 +40,13 @@ export interface Insets {
 }
 
 const HEADER_SPACE = 68;
-const MINIMAP = { width: 140, height: 92 };
-/** Room the minimap takes in the bottom-right corner; the toolbar centres in what is left. */
-export const MINIMAP_SPACE = MINIMAP.width + 24;
+/** Minimap for a canvas this size: 15% of its width within 140-240px, shaped like the canvas but never taller than wide. */
+export function minimapSize(width: number, height: number) {
+  const w = Math.round(Math.min(240, Math.max(140, width * 0.15)));
+  return { width: w, height: Math.round(Math.min(w, Math.max(80, (w * height) / Math.max(width, 1)))) };
+}
+/** Room the minimap takes in the bottom-right corner, margins included. */
+export const minimapSpace = (minimap: { width: number }) => minimap.width + 24;
 const TOOLBAR_SPACE = 76;
 
 /** Fit padding that keeps the flow clear of the floating chrome. */
@@ -80,8 +84,10 @@ interface Props {
   insets: Insets;
   /** A narrow canvas: icon-only toolbar. */
   compact: boolean;
-  /** Bottom right, beside the toolbar, while the panel is closed. */
-  minimap: boolean;
+  /** Bottom right, beside the toolbar, while the panel is closed; its size, or null to hide it. */
+  minimap: { width: number; height: number } | null;
+  /** Width covered along the bottom-right edge (the open panel or the minimap); the toolbar keeps clear of it. */
+  bottomRight: number;
 }
 
 const JUMP_PREFIX = 'jump:';
@@ -316,7 +322,7 @@ export function FlowCanvas(props: Props) {
             onTidy={props.onTidy}
             onAnnotate={props.onAnnotate}
             compact={props.compact}
-            shift={(props.insets.right + (props.minimap ? MINIMAP_SPACE : 0)) / 2}
+            reserve={props.bottomRight}
             fit={fitPadding(props.insets)}
           />
         )
@@ -327,7 +333,7 @@ export function FlowCanvas(props: Props) {
           zoomable
           position="bottom-right"
           className="!mr-3 !mb-4 overflow-hidden rounded-xl border border-slate-200 shadow-lg shadow-slate-900/5"
-          style={MINIMAP}
+          style={props.minimap}
           maskColor="rgba(241, 245, 249, 0.7)"
           nodeColor={(n) => MINIMAP_COLOR[n.type as keyof typeof MINIMAP_COLOR] ?? '#94a3b8'}
           nodeBorderRadius={6}
@@ -345,7 +351,7 @@ export function FlowCanvas(props: Props) {
         </Panel>
       )}
       {isBlank && editable && !playback.actor && (
-        <Panel position="top-center" className="!mt-[68px]" style={{ marginLeft: -props.insets.right / 2 }}>
+        <Panel position="top-center" className="!mt-[68px]" style={{ translate: `${-props.insets.right / 2}px 0` }}>
           <div className="flex max-w-md items-start gap-3 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg shadow-slate-900/5 backdrop-blur">
             <MousePointerClick size={18} className="mt-0.5 shrink-0 text-indigo-500" />
             <div className="text-[13px] leading-relaxed text-slate-600">

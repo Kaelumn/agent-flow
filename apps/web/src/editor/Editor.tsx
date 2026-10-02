@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { Badge, Button, Empty, useConfirm, useToast } from '../components/ui';
 import { buildMessage, deliver, type Annotation } from './annotate/message';
-import { centerOn, fitPadding, FlowCanvas, MINIMAP_SPACE, type CanvasInstance, type RunTrace, type Selection } from './canvas/FlowCanvas';
+import { centerOn, fitPadding, FlowCanvas, minimapSize, minimapSpace, type CanvasInstance, type RunTrace, type Selection } from './canvas/FlowCanvas';
 import type { RunMark } from './canvas/nodes';
 import { Dock, dockInsets, NARROW_WIDTH, type DockTab } from './Dock';
 import { EditorHeader } from './EditorHeader';
@@ -78,7 +78,9 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
   const narrow = size.width < NARROW_WIDTH;
   const insets = dockInsets(!!panel && !annotating, narrow, size.height);
   // The minimap sits where the open panel would cover it, and needs the room of the icon-only toolbar beside it.
-  const minimap = size.width >= MINIMAP_MIN_WIDTH && (!panel || annotating);
+  const minimap = size.width >= MINIMAP_MIN_WIDTH && (!panel || annotating) ? minimapSize(size.width, size.height) : null;
+  // What covers the bottom-right corner: the open side card, or the minimap. The rail sits at the top only.
+  const bottomRight = panel && !annotating && !narrow ? insets.right : minimap ? minimapSpace(minimap) : 0;
 
   /** Centres a node in the part of the canvas the dock leaves free; `opening` when the dock is about to open for it. */
   const focusNode = (id: string, opening = false) => {
@@ -228,8 +230,9 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
         selection={selection}
         readOnly={viewingRun}
         insets={insets}
-        compact={size.width - insets.right - (minimap ? MINIMAP_SPACE : 0) < COMPACT_WIDTH}
+        compact={size.width - bottomRight < COMPACT_WIDTH}
         minimap={minimap}
+        bottomRight={bottomRight}
         onSelect={select}
         onReady={setRf}
         onConnect={(source, target) => void edit([{ op: 'addEdges', edges: [{ source, target }] }])}

@@ -1,6 +1,6 @@
-import { Panel, useReactFlow, useViewport, type FitViewOptions } from '@xyflow/react';
+import { Panel, useReactFlow, useStore, useViewport, type FitViewOptions } from '@xyflow/react';
 import { CircleStop, LayoutGrid, Maximize, Minus, Plus, SquareDashedMousePointer, SquarePlus } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cx, Tooltip } from '../../components/ui';
 
 interface Props {
@@ -11,21 +11,37 @@ interface Props {
   onAnnotate: () => void;
   /** Icons only, for narrow canvases. */
   compact: boolean;
-  /** Pixels the toolbar shifts left to stay centred on the uncovered canvas. */
-  shift: number;
+  /** Width covered along the bottom-right edge. The toolbar stays centred and moves left only to clear it. */
+  reserve: number;
   fit: FitViewOptions['padding'];
 }
 
 /** Floating canvas toolbar: editing on the left, view controls on the right. */
-export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy, onAnnotate, compact, shift, fit }: Props) {
+const GAP = 12;
+
+export function Toolbar({ readOnly, onAddStep, onAddEnd, onTidy, onAnnotate, compact, reserve, fit }: Props) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const { zoom } = useViewport();
+  const canvas = useStore((s) => s.width);
+  const bar = useRef<HTMLDivElement>(null);
+  const [own, setOwn] = useState(0);
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setOwn(el.offsetWidth));
+    observer.observe(el);
+    setOwn(el.offsetWidth);
+    return () => observer.disconnect();
+  }, []);
+  // Centred on the canvas; shifted left only as far as needed to clear the corner, never past the left edge.
+  const overlap = canvas / 2 + own / 2 - (canvas - reserve - GAP);
+  const shift = Math.max(0, Math.min(overlap, canvas / 2 - own / 2 - GAP));
   const label = (text: string) => (compact ? undefined : text);
   const fitAll = () => void fitView({ padding: fit, maxZoom: 1, duration: 250 });
 
   return (
-    <Panel position="bottom-center" className="!mb-4" style={{ marginLeft: -shift }}>
-      <div className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-lg shadow-slate-900/5 backdrop-blur">
+    <Panel position="bottom-center" className="!mb-4" style={{ translate: `${-shift}px 0` }}>
+      <div ref={bar} className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-lg shadow-slate-900/5 backdrop-blur">
         {!readOnly && (
           <>
             <Tool onClick={onAddStep} label="Add a step" shortcut={label('Step')} primary><SquarePlus size={16} /></Tool>
