@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { Badge, Button, Empty, useConfirm, useToast } from '../components/ui';
 import { buildMessage, deliver, type Annotation } from './annotate/message';
-import { centerOn, fitPadding, FlowCanvas, type CanvasInstance, type RunTrace, type Selection } from './canvas/FlowCanvas';
+import { centerOn, fitPadding, FlowCanvas, MINIMAP_SPACE, type CanvasInstance, type RunTrace, type Selection } from './canvas/FlowCanvas';
 import type { RunMark } from './canvas/nodes';
 import { Dock, dockInsets, NARROW_WIDTH, type DockTab } from './Dock';
 import { EditorHeader } from './EditorHeader';
@@ -21,8 +21,6 @@ type Tab = 'inspect' | 'issues' | 'versions' | 'runs';
 
 /** Uncovered canvas narrower than this gets the icon-only toolbar. */
 const COMPACT_WIDTH = 560;
-/** Below this width the minimap would collide with the toolbar. */
-const MINIMAP_WIDTH = 1100;
 
 interface Props {
   graphId: string;
@@ -77,6 +75,8 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
   const trace = useMemo(() => (runDetail ? traceOf(runDetail) : null), [runDetail]);
   const narrow = size.width < NARROW_WIDTH;
   const insets = dockInsets(!!panel && !annotating, narrow, size.height);
+  // The minimap sits where the open card would cover it, and is too much on a phone-width canvas.
+  const minimap = !narrow && (!panel || annotating);
 
   /** Centres a node in the part of the canvas the dock leaves free; `opening` when the dock is about to open for it. */
   const focusNode = (id: string, opening = false) => {
@@ -226,8 +226,8 @@ export function Editor({ graphId, hostOrigin, onGone, onBack }: Props) {
         selection={selection}
         readOnly={viewingRun}
         insets={insets}
-        compact={size.width - insets.right < COMPACT_WIDTH}
-        minimap={size.width >= MINIMAP_WIDTH && !insets.bottom}
+        compact={size.width - insets.right - (minimap ? MINIMAP_SPACE : 0) < COMPACT_WIDTH}
+        minimap={minimap}
         onSelect={select}
         onReady={setRf}
         onConnect={(source, target) => void edit([{ op: 'addEdges', edges: [{ source, target }] }])}

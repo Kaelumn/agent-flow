@@ -40,6 +40,9 @@ export interface Insets {
 }
 
 const HEADER_SPACE = 68;
+const MINIMAP = { width: 140, height: 92 };
+/** Room the minimap takes in the bottom-right corner; the toolbar centres in what is left. */
+export const MINIMAP_SPACE = MINIMAP.width + 24;
 const TOOLBAR_SPACE = 76;
 
 /** Fit padding that keeps the flow clear of the floating chrome. */
@@ -77,7 +80,7 @@ interface Props {
   insets: Insets;
   /** A narrow canvas: icon-only toolbar. */
   compact: boolean;
-  /** Only where there is room beside the toolbar. */
+  /** Bottom right, beside the toolbar, while the panel is closed. */
   minimap: boolean;
 }
 
@@ -313,7 +316,7 @@ export function FlowCanvas(props: Props) {
             onTidy={props.onTidy}
             onAnnotate={props.onAnnotate}
             compact={props.compact}
-            shift={props.insets.right / 2}
+            shift={(props.insets.right + (props.minimap ? MINIMAP_SPACE : 0)) / 2}
             fit={fitPadding(props.insets)}
           />
         )
@@ -322,9 +325,9 @@ export function FlowCanvas(props: Props) {
         <MiniMap
           pannable
           zoomable
-          position="bottom-left"
-          className="!mb-4 !ml-3 overflow-hidden rounded-xl border border-slate-200 shadow-lg shadow-slate-900/5"
-          style={{ width: 176, height: 116 }}
+          position="bottom-right"
+          className="!mr-3 !mb-4 overflow-hidden rounded-xl border border-slate-200 shadow-lg shadow-slate-900/5"
+          style={MINIMAP}
           maskColor="rgba(241, 245, 249, 0.7)"
           nodeColor={(n) => MINIMAP_COLOR[n.type as keyof typeof MINIMAP_COLOR] ?? '#94a3b8'}
           nodeBorderRadius={6}
