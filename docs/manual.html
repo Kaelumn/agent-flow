@@ -1,0 +1,432 @@
+<title>Agent Flow 产品手册</title>
+<meta name="description" content="Agent Flow：让 MSP 的 agent 按流程图一步不差地执行 SOP。痛点、功能、使用方法与集成说明。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a working manual. Sticky contents rail on wide screens, one reading column, tables and code scroll inside their own boxes. */
+:root {
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --ink: #141a2b;
+  --muted: #5a6478;
+  --line: #e2e6ef;
+  --accent: #4f46e5;
+  --accent-soft: #eef0ff;
+  --warn: #c2410c;
+  --warn-soft: #fff4ec;
+  --ok: #047857;
+  --ok-soft: #e9f8f1;
+  --code-bg: #f1f3f8;
+  --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --measure: 46rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1320; --surface: #161b2b; --ink: #e8ebf4; --muted: #9aa3b8; --line: #283048;
+    --accent: #8b87ff; --accent-soft: #23264a; --warn: #fb923c; --warn-soft: #2e1f16;
+    --ok: #34d399; --ok-soft: #12291f; --code-bg: #1d2336; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1320; --surface: #161b2b; --ink: #e8ebf4; --muted: #9aa3b8; --line: #283048;
+  --accent: #8b87ff; --accent-soft: #23264a; --warn: #fb923c; --warn-soft: #2e1f16;
+  --ok: #34d399; --ok-soft: #12291f; --code-bg: #1d2336; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.75 var(--font-body);
+  padding-inline: 16px;
+  padding-block: 0 64px;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code, kbd, pre { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 0.1em 0.38em; border-radius: 4px; overflow-wrap: anywhere; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; background: var(--surface); padding: 0.05em 0.4em; border-radius: 4px; white-space: nowrap; }
+pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; line-height: 1.6; margin: 0; }
+pre code { background: none; padding: 0; font-size: 1em; }
+
+.shell { max-width: 72rem; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 40px; }
+@media (min-width: 1000px) { .shell { grid-template-columns: 13rem minmax(0, 1fr); } }
+
+/* Contents */
+.toc { display: none; }
+@media (min-width: 1000px) {
+  .toc { display: block; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 32px); align-self: start; padding-top: 40px; font-size: 13.5px; }
+}
+.toc p { margin: 0 0 10px; font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: toc; }
+.toc li { counter-increment: toc; }
+.toc a { display: flex; gap: 8px; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 6px; }
+.toc a::before { content: counter(toc); font-family: var(--font-mono); font-size: 11px; color: var(--accent); min-width: 1.2em; padding-top: 3px; }
+.toc a:hover { background: var(--accent-soft); color: var(--ink); }
+
+main { min-width: 0; max-width: var(--measure); }
+
+/* Masthead */
+.mast { padding-block: 48px 8px; display: grid; gap: 14px; }
+.mark { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.01em; }
+.mark span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff; }
+.mast h1 { margin: 0; font-size: clamp(28px, 4.6vw, 40px); line-height: 1.25; letter-spacing: -0.02em; text-wrap: balance; }
+.mast .lede { margin: 0; color: var(--muted); font-size: 17px; max-width: 40rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.meta span { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; background: var(--surface); }
+
+/* Sections */
+section { padding-top: 40px; scroll-margin-top: 24px; }
+h2 { font-size: 23px; line-height: 1.35; margin: 0 0 6px; letter-spacing: -0.01em; text-wrap: balance; }
+h2 small { display: block; font-size: 12px; font-weight: 500; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+h3 { font-size: 17px; margin: 28px 0 6px; text-wrap: balance; }
+p { margin: 10px 0; }
+.muted { color: var(--muted); }
+hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0 0; }
+
+/* Pain points: problem on the left, what the product does on the right */
+.pairs { display: grid; gap: 10px; margin-top: 16px; }
+.pair { display: grid; grid-template-columns: 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+@media (min-width: 640px) { .pair { grid-template-columns: 1fr 1fr; } }
+.pair > div { padding: 14px 16px; min-width: 0; }
+.pair .pain { background: var(--warn-soft); }
+.pair .fix { border-top: 1px solid var(--line); }
+@media (min-width: 640px) { .pair .fix { border-top: 0; border-left: 1px solid var(--line); } }
+.pair b { display: block; font-size: 12px; letter-spacing: 0.06em; margin-bottom: 4px; }
+.pair .pain b { color: var(--warn); }
+.pair .fix b { color: var(--ok); }
+.pair p { margin: 0; font-size: 14px; }
+
+/* How it fits together */
+.flowline { display: grid; gap: 8px; margin-top: 16px; grid-template-columns: 1fr; }
+@media (min-width: 720px) { .flowline { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.hop { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; position: relative; min-width: 0; }
+.hop b { display: block; font-size: 14px; }
+.hop span { font-size: 13px; color: var(--muted); }
+.hop.core { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Tables */
+.table { overflow-x: auto; margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: 0.04em; background: var(--bg); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; font-weight: 500; }
+
+/* Features */
+.features { display: grid; gap: 12px; margin-top: 16px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .features { grid-template-columns: 1fr 1fr; } }
+.feature { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0; }
+.feature h3 { margin: 0 0 4px; font-size: 15.5px; }
+.feature p { margin: 0; font-size: 14px; color: var(--muted); }
+.feature ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+
+/* Steps of a procedure */
+.steps { list-style: none; counter-reset: step; padding: 0; margin: 14px 0 0; display: grid; gap: 14px; }
+.steps > li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; }
+.steps > li::before { content: counter(step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font: 600 13px var(--font-mono); }
+.steps p { margin: 2px 0 0; }
+
+/* A chat transcript sample */
+.chat { display: grid; gap: 8px; margin-top: 14px; padding: 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.msg { max-width: 88%; padding: 8px 12px; border-radius: 12px; font-size: 14px; }
+.msg.user { justify-self: end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.msg.agent { background: var(--bg); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg.notice { max-width: 100%; background: var(--warn-soft); border: 1px solid var(--line); font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; }
+
+.callout { margin-top: 14px; padding: 12px 16px; border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
+.callout b { color: var(--accent); }
+
+details { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 0 16px; margin-top: 8px; }
+summary { cursor: pointer; padding: 12px 0; font-weight: 500; }
+details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+details p { font-size: 14px; }
+
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="目录">
+    <p>目录</p>
+    <ol>
+      <li><a href="#why">为什么需要它</a></li>
+      <li><a href="#how">工作方式</a></li>
+      <li><a href="#concepts">核心概念</a></li>
+      <li><a href="#features">功能一览</a></li>
+      <li><a href="#build">用聊天建流程</a></li>
+      <li><a href="#canvas">在画布上修改</a></li>
+      <li><a href="#annotate">标注发回 agent</a></li>
+      <li><a href="#publish">发布与运行</a></li>
+      <li><a href="#embed">嵌入 MSPbots</a></li>
+      <li><a href="#deploy">部署与配置</a></li>
+      <li><a href="#faq">常见问题</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="mast">
+      <div class="mark"><span aria-hidden="true">⟶</span>Agent Flow</div>
+      <h1>让 agent 按流程图办事，一步不漏</h1>
+      <p class="lede">Agent Flow 把 MSP 的 SOP 存成流程图。agent 在聊天里和你一起把流程建出来，你在画布上看得见、改得了；执行时服务端逐步把关，agent 只能按图走。</p>
+      <div class="meta"><span>面向 MSPbots 平台</span><span>通过 MCP 接入任意 agent</span><span>手册版本 2026-10</span></div>
+    </header>
+
+    <section id="why">
+      <h2><small>痛点</small>为什么写在 skill 里的 SOP 不可靠</h2>
+      <p>常见做法是把 SOP 写进 skill：一段说明加一张 Mermaid 流程图，再挂上工具，交给 agent 执行。流程少、步骤短的时候还行。一旦流程变多、分支变复杂，问题就集中出现：</p>
+      <div class="pairs">
+        <div class="pair">
+          <div class="pain"><b>漏步、乱序</b><p>agent 读的是一段文字，执行到第 7 步时忘了第 4 步还没做，或者先建账号再查重。</p></div>
+          <div class="fix"><b>服务端按图把关</b><p>每一步由服务端告诉 agent 该调哪个工具、能走哪几条线；乱序提交和不存在的连线会被直接拒绝。</p></div>
+        </div>
+        <div class="pair">
+          <div class="pain"><b>参数填错</b><p>工单号、上一步返回的用户 ID，agent 靠“理解”去拼，经常拿错字段或自己编一个。</p></div>
+          <div class="fix"><b>引用写法 + 运行时填值</b><p>参数写成 <code>{{input.ticket_id}}</code>、<code>{{new_user.id}}</code>。建图时校验来源是否存在、是否一定先执行；运行时由服务端填好真实值。</p></div>
+        </div>
+        <div class="pair">
+          <div class="pain"><b>异常不会处理</b><p>工具报错后 agent 要么停住，要么假装成功继续往下走。</p></div>
+          <div class="fix"><b>每一步写明失败怎么办</b><p>停止、继续，或跳到通知人的步骤。结果必须如实上报成功、失败或跳过（跳过要写原因）。</p></div>
+        </div>
+        <div class="pair">
+          <div class="pain"><b>几百套流程没法管</b><p>流程藏在一堆 skill 文件里，没人看得懂全貌，改一处不知道会影响哪里，也没有版本。</p></div>
+          <div class="fix"><b>可视化 + 校验 + 版本</b><p>每个流程都是一张可以搜索、浏览的图；发布前必须通过校验；每次发布生成不可变版本，可以随时回到旧版。</p></div>
+        </div>
+        <div class="pair">
+          <div class="pain"><b>agent 改了什么看不见</b><p>让 agent 修改流程，只能读它的回复，无法逐处检查。</p></div>
+          <div class="fix"><b>实时播放 + 修改历史</b><p>agent 每改一处，画布就把它逐步画出来；每次修改都记在历史里，谁在第几版改了什么一清二楚。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <h2><small>工作方式</small>四个角色，一张图</h2>
+      <p>Agent Flow 不是一个新的 agent，也不是工作流引擎。它是你现有 agent 旁边的“流程本”：agent 通过 MCP 读写流程图、按图执行；人通过画布查看和修改同一张图。</p>
+      <div class="flowline" role="list">
+        <div class="hop" role="listitem"><b>MSPbots 对话</b><span>人提出需求、收到汇报，标注也送到这里</span></div>
+        <div class="hop" role="listitem"><b>你的 agent</b><span>理解需求，建图、改图，按图调用工具</span></div>
+        <div class="hop core" role="listitem"><b>Agent Flow</b><span>存流程、做校验、管版本，执行时逐步把关</span></div>
+        <div class="hop" role="listitem"><b>画布</b><span>嵌在对话旁边，实时显示并可直接修改</span></div>
+      </div>
+      <p class="muted">工具（Autotask、Microsoft 365、Teams 等）仍由 agent 自己调用；Agent Flow 只决定“下一步做什么、能走哪条线”，并记录每一步的结果。</p>
+    </section>
+
+    <section id="concepts">
+      <h2><small>核心概念</small>读懂一张流程图</h2>
+      <div class="table">
+        <table>
+          <thead><tr><th>概念</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>流程（Flow）</td><td>一套 SOP。有一份可编辑的<strong>草稿</strong>和若干已发布的<strong>版本</strong>。描述里写用途、适用范围和固定参数（比如各办公室对应的邮件组）。</td></tr>
+            <tr><td>开始节点</td><td>每个流程一个，声明运行时要传入的参数，例如 <code>ticket_id</code>。</td></tr>
+            <tr><td>步骤</td><td>一次工具调用。包含：调用哪个工具、每个参数从哪来、给 agent 的指引、结果存成什么名字（输出键），以及失败时怎么办。</td></tr>
+            <tr><td>结束节点</td><td>业务结果：<code>completed</code> 完成、<code>stopped</code> 无需处理、<code>failed</code> 失败。</td></tr>
+            <tr><td>连线与分支</td><td>一个步骤有多条出线时，每条写一句自然语言条件，由 agent 根据刚拿到的数据判断；最多一条标为默认（Otherwise）。</td></tr>
+            <tr><td>引用</td><td><code>{{input.名称}}</code> 取运行参数，<code>{{输出键.字段}}</code> 取前面步骤的结果。校验器检查来源存在且一定先执行，运行时自动填值。</td></tr>
+            <tr><td>运行（Run）</td><td>基于某个已发布版本的一次执行，记录走到哪一步、每一步的参数和结果。</td></tr>
+            <tr><td>标注</td><td>审阅人在画布上画框圈出问题、写一句说明，发回对话。不保存，发完即走。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="features">
+      <h2><small>功能一览</small>它能做什么</h2>
+      <div class="features">
+        <div class="feature">
+          <h3>聊天建图</h3>
+          <p>agent 通过 MCP 增删改节点和连线，查询真实可用的工具，不会编造工具名。配套 flow-designer skill，教 agent 怎么访谈、怎么建、怎么自查。</p>
+        </div>
+        <div class="feature">
+          <h3>实时画布</h3>
+          <p>agent 的每次修改都按流程顺序逐个播放：节点弹出、连线画出、改动闪烁、删除淡出，镜头自动跟随。</p>
+        </div>
+        <div class="feature">
+          <h3>手动编辑</h3>
+          <p>拖线连接、拖到空白处新建步骤、在连线上插入步骤、可搜索的工具选择器、带引用补全的参数编辑、一键整理布局。</p>
+        </div>
+        <div class="feature">
+          <h3>建图时校验</h3>
+          <p>走不通的分支、到不了的步骤、未知工具和参数、引用来源缺失或可能未执行，都会标在节点上；有错误不能发布。</p>
+        </div>
+        <div class="feature">
+          <h3>画框标注</h3>
+          <p>圈出要改的地方写一句话，发送后作为系统通知进入 MSPbots 对话，带上步骤、连线和修订号，agent 拿到就能改。</p>
+        </div>
+        <div class="feature">
+          <h3>版本与历史</h3>
+          <p>发布生成不可变版本，运行永远使用最新发布版。修改历史记录每次变更的人、来源（画布或 agent）和内容，可恢复旧版本到草稿。</p>
+        </div>
+        <div class="feature">
+          <h3>按图执行</h3>
+          <p>flow-runner skill 驱动 agent 逐步执行：服务端给出当前步骤、已填好的参数和可选出线，拒绝乱序；画布可回放每次运行的轨迹。</p>
+        </div>
+        <div class="feature">
+          <h3>实时工具目录</h3>
+          <p>直接从你配置的 MCP 服务读取工具及参数结构，按工具的只读标记区分“读”和“写”。</p>
+        </div>
+      </div>
+    </section>
+
+    <hr>
+
+    <section id="build">
+      <h2><small>使用 · 1</small>用聊天建一个流程</h2>
+      <p>在 MSPbots 里像对同事一样描述流程即可。agent 会先确认可用工具，然后按执行顺序一步步建，右边的画布同步长出来。</p>
+      <div class="chat" aria-label="对话示例">
+        <div class="msg user">帮我建一个密码重置的 SOP：根据 Autotask 工单找到用户；M365 里没有这个账号就在工单里备注后结束；有的话重置密码，用 Teams 把临时密码发给他的经理，最后在工单里备注。</div>
+        <div class="msg agent">好的。我先确认一下能用的工具……找到了 graph_reset_password、autotask_create_ticket_note 等。流程的输入是工单号 ticket_id。</div>
+        <div class="msg agent">第 1 步：读取工单，找出要重置密码的用户。</div>
+        <div class="msg agent">账号不存在的分支：在工单里备注，然后结束。</div>
+        <div class="msg agent">流程建好了：7 个步骤、2 个分支，校验 0 个错误。你可以在右边画布上检查，觉得哪里不对就画框标注发给我；没问题的话我就发布。</div>
+      </div>
+      <h3>说清楚这几件事，流程才可靠</h3>
+      <ol class="steps">
+        <li><div><strong>触发和输入</strong><p>什么情况下启动（工单创建、表单、定时），运行时带什么参数；哪些请求应该直接忽略。</p></div></li>
+        <li><div><strong>完成的标准和禁区</strong><p>什么算办完；什么绝对不能做，比如“不要关闭原工单”。</p></div></li>
+        <li><div><strong>每个分叉点</strong><p>哪里会分开走，依据是什么数据。</p></div></li>
+        <li><div><strong>固定参数</strong><p>对照表和常量的真实值：办公室对应哪些组、用哪种 license、通知谁。</p></div></li>
+        <li><div><strong>失败时怎么办</strong><p>每个会改动数据的步骤失败后，是停止、继续，还是通知人。</p></div></li>
+      </ol>
+      <div class="callout"><b>没时间回答问题？</b> 直接让 agent 自己建。它会对没说清的地方做最保守的假设，写进流程说明的“待确认问题”，最后统一列给你。</div>
+    </section>
+
+    <section id="canvas">
+      <h2><small>使用 · 2</small>在画布上查看和修改</h2>
+      <p>流程图铺满画布。左上角是标题栏（流程名、状态、问题数、发布）；右上角一列图标打开面板：<strong>属性</strong>、<strong>问题</strong>、<strong>历史</strong>、<strong>运行记录</strong>。面板默认收起，选中节点时自动弹出。</p>
+      <div class="table">
+        <table>
+          <thead><tr><th>操作</th><th>方法</th></tr></thead>
+          <tbody>
+            <tr><td>移动画布</td><td>滚轮上下滚动，<kbd>Shift</kbd> + 滚轮左右滚动；按住 <kbd>Space</kbd> 或鼠标中键拖动</td></tr>
+            <tr><td>缩放</td><td><kbd>Ctrl</kbd> + 滚轮，或触控板双指捏合；工具栏的百分比按钮适应屏幕</td></tr>
+            <tr><td>连接两个步骤</td><td>悬停节点，从底部圆点拖到另一个节点</td></tr>
+            <tr><td>接着加一步</td><td>从节点底部圆点拖到空白处松开</td></tr>
+            <tr><td>在中间插入一步</td><td>选中连线，点中间的 <kbd>+</kbd>；或在连线面板点 Insert step</td></tr>
+            <tr><td>编辑步骤</td><td>点击节点，在属性面板里选工具、填参数（输入 <kbd>{{</kbd> 弹出可用引用）、设置失败处理</td></tr>
+            <tr><td>整理布局</td><td>工具栏 Tidy</td></tr>
+            <tr><td>删除</td><td>选中后按 <kbd>Delete</kbd>，删除步骤前会确认</td></tr>
+            <tr><td>收起面板</td><td><kbd>Esc</kbd>，或点击空白画布</td></tr>
+            <tr><td>开始标注</td><td><kbd>A</kbd>，或工具栏 Annotate</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">你在画布上的修改和 agent 的修改走同一条写入路径：同样的校验、同样的修改历史。两边同时改时，后提交的一方会收到“流程已变化”的提示并拿到最新内容，不会互相覆盖。</p>
+    </section>
+
+    <section id="annotate">
+      <h2><small>使用 · 3</small>标注问题，发回 agent</h2>
+      <ol class="steps">
+        <li><div><strong>进入标注模式</strong><p>按 <kbd>A</kbd>。画布冻结，鼠标变成十字。</p></div></li>
+        <li><div><strong>圈出问题</strong><p>拖一个框，或直接点击某个步骤，写一句要改什么，回车确认。可以连续画多个框，滚动画布去标别处。</p></div></li>
+        <li><div><strong>发送</strong><p>点 Send。标注作为系统通知进入当前对话，画框清空。单独打开画布时按钮是 Copy，复制后粘贴到对话里。</p></div></li>
+      </ol>
+      <div class="chat" aria-label="标注通知示例">
+        <div class="msg notice">[Agent Flow] 1 annotation on "Password reset (demo)" (flow g_muqjpq6jtippmejlog, draft revision 17)
+1. 经理不在时改发给 IT 组
+   On: step "Send the password to the manager" (tell_manager)
+Read the flow with flow_get, apply the changes to the draft, then summarise what you changed for each annotation.</div>
+      </div>
+      <p>框住的不是像素位置，而是具体的步骤和连线。框在空白处会记为“附近的连线”，框住大半张图则视为针对整个流程。修订号让 agent 知道你标注时看到的是哪一版。</p>
+    </section>
+
+    <section id="publish">
+      <h2><small>使用 · 4</small>发布与运行</h2>
+      <p>草稿通过校验后点 Publish，写一句这一版改了什么。运行永远使用最新发布的版本，草稿可以继续改，不影响正在跑的流程。</p>
+      <h3>agent 怎么按图执行</h3>
+      <ol class="steps">
+        <li><div><code>run_start</code><p>传入流程和参数，拿到第一步：要调的工具、已填好的参数（<code>resolvedArgs</code>）、指引和可选出线。</p></div></li>
+        <li><div>agent 自己调用该工具<p>用 MSPbots 里已有的工具连接，Agent Flow 不代为调用。</p></div></li>
+        <li><div><code>run_submit</code><p>上报结果（成功、失败或跳过）和选择的出线。服务端检查出线是否属于当前步骤，再给出下一步。</p></div></li>
+        <li><div>重复直到结束节点<p>每一步都留在运行记录里，画布可以回放轨迹，失败的步骤标红。</p></div></li>
+      </ol>
+      <div class="table">
+        <table>
+          <thead><tr><th>状态</th><th>含义</th></tr></thead>
+          <tbody>
+            <tr><td><code>running</code></td><td>进行中，停在某一步等待 agent 上报</td></tr>
+            <tr><td><code>completed</code> / <code>stopped</code> / <code>failed</code></td><td>到达对应结果的结束节点</td></tr>
+            <tr><td><code>cancelled</code></td><td>被手动取消</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <hr>
+
+    <section id="embed">
+      <h2><small>集成</small>嵌入 MSPbots</h2>
+      <p>画布以 iframe 嵌在对话右侧（约占屏幕 2/5），和单独打开时是同一套界面，会按宽度自动调整：宽度 720px 以上，面板从右侧浮出；更窄时，面板从底部弹出，工具栏只显示图标。</p>
+      <pre><code>&lt;iframe src="https://flows.example.com/#/flows/&lt;流程 id&gt;" allow="clipboard-write"&gt;&lt;/iframe&gt;</code></pre>
+      <p>标注通过浏览器消息送达：画布发出 <code>agent-flow.annotations</code>，MSPbots 校验来源、把其中的 <code>text</code> 作为系统通知插入对话并触发 agent，再回发 <code>agent-flow.annotations.ack</code>。3 秒内收不到回执，画布会改为复制到剪贴板并提示用户。完整格式见仓库 <code>docs/integration/canvas-annotations.md</code>。</p>
+      <p class="muted">本地可以用 <code>http://localhost:4100/host?flow=&lt;流程 id&gt;</code> 的模拟对话页试嵌入和标注。</p>
+    </section>
+
+    <section id="deploy">
+      <h2><small>运维</small>部署与配置</h2>
+      <p>前后端在同一个仓库：<code>apps/server</code>（Fastify + MCP）、<code>apps/web</code>（画布）、<code>packages/core</code>（模型和校验，前后端共用）。数据库默认 MySQL，可切换 PostgreSQL。</p>
+      <pre><code>npm install
+npm run db:migrate
+npm run build
+npm start -w @agent-flow/server   # 同时提供 /api、/mcp 和打包后的画布</code></pre>
+      <div class="table">
+        <table>
+          <thead><tr><th>环境变量</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><code>DATABASE_URL</code></td><td>数据库连接串；<code>DB_DIALECT</code> 选 <code>mysql</code> 或 <code>postgres</code></td></tr>
+            <tr><td><code>AUTH_TOKENS</code></td><td><code>token:工作区:身份</code>，逗号分隔。画布和 agent 各用自己的 token</td></tr>
+            <tr><td><code>TOOL_SERVERS_CONFIG</code></td><td>工具目录来源：MCP 服务列表（JSON）；也可用 <code>TOOL_CATALOG_PATH</code> 指向静态目录</td></tr>
+            <tr><td><code>PUBLIC_WEB_URL</code></td><td>画布地址，agent 的回复里会附上画布链接</td></tr>
+            <tr><td><code>EMBED_ORIGINS</code></td><td>允许嵌入画布并接收标注的页面来源，如 <code>https://app.mspbots.ai</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>给 agent 接上 Agent Flow</h3>
+      <p>在 agent 的 MCP 配置里加上 <code>/mcp</code> 地址和 agent 的 token，再装上两个 skill：<code>flow-designer</code>（建图、改图、处理标注）和 <code>flow-runner</code>（按图执行）。连接后服务端会把使用说明发给 agent。</p>
+      <div class="table">
+        <table>
+          <thead><tr><th>MCP 工具</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td>目录</td><td><code>tools_search</code></td></tr>
+            <tr><td>建图</td><td><code>flow_list</code> <code>flow_create</code> <code>flow_get</code> <code>flow_update</code> <code>flow_add_nodes</code> <code>flow_update_node</code> <code>flow_remove_node</code> <code>flow_add_edges</code> <code>flow_update_edge</code> <code>flow_remove_edge</code> <code>flow_validate</code> <code>flow_publish</code></td></tr>
+            <tr><td>运行</td><td><code>run_start</code> <code>run_current</code> <code>run_submit</code> <code>run_cancel</code> <code>run_get</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2><small>FAQ</small>常见问题</h2>
+      <details>
+        <summary>agent 建图时返回很多“未连接”的提示，正常吗？</summary>
+        <p>正常。建图过程中，修改结果的 <code>issues</code> 只列现在就是错的问题（比如工具名不存在）；还没连上、引用的步骤还没加这类，只在 <code>unfinished</code> 里计数，建完自然消失。最后用 <code>flow_validate</code> 看完整结果。</p>
+      </details>
+      <details>
+        <summary>分支条件里能写 {{引用}} 吗？</summary>
+        <p>不能。条件用自然语言描述刚拿到的数据，例如“账号不存在”；条件里的引用既不校验也不填值。</p>
+      </details>
+      <details>
+        <summary>标注会保存吗？发错了怎么办？</summary>
+        <p>不保存。发出去就是对话里的一条通知，在对话里告诉 agent 忽略即可。发送前可以点框上的编号修改或删除。</p>
+      </details>
+      <details>
+        <summary>我和 agent 同时改同一个流程会怎样？</summary>
+        <p>画布的每次写入都带修订号，agent 按 skill 也会带上。后提交的一方会收到冲突提示并拿到最新内容，需要重做那一步修改，不会互相覆盖。</p>
+      </details>
+      <details>
+        <summary>运行中途 agent 断开了怎么办？</summary>
+        <p>运行状态在服务端，重新连接后用 <code>run_current</code> 取回当前步骤继续。接管、超时、重试和人工审批节点在下期规划中。</p>
+      </details>
+      <details>
+        <summary>现在还有哪些限制？</summary>
+        <p>身份暂用配置文件里的 token，正式接入 MSPbots 账号体系后会替换；嵌入画布目前仍需手动输入 token。多实例部署需要把实时推送换成 Redis。PostgreSQL 已支持，尚未在生产规模下实测。</p>
+      </details>
+    </section>
+
+    <footer>Agent Flow 产品手册 · 内容与仓库 docs/DESIGN.md 保持一致，接口细节以代码为准。</footer>
+  </main>
+</div>
