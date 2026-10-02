@@ -102,14 +102,6 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0 0; }
 .pair .fix b { color: var(--ok); }
 .pair p { margin: 0; font-size: 14px; }
 
-/* How it fits together */
-.flowline { display: grid; gap: 8px; margin-top: 16px; grid-template-columns: 1fr; }
-@media (min-width: 720px) { .flowline { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.hop { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; position: relative; min-width: 0; }
-.hop b { display: block; font-size: 14px; }
-.hop span { font-size: 13px; color: var(--muted); }
-.hop.core { border-color: var(--accent); background: var(--accent-soft); }
-
 /* Tables */
 .table { overflow-x: auto; margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
@@ -147,6 +139,11 @@ summary { cursor: pointer; padding: 12px 0; font-weight: 500; }
 details[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 4px; }
 details p { font-size: 14px; }
 
+figure { margin: 18px 0 0; }
+.diagram { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 16px; }
+.diagram svg { display: block; width: 100%; height: auto; min-width: 560px; color: var(--ink); font-family: var(--font-body); }
+figcaption { margin-top: 8px; font-size: 13px; color: var(--muted); }
+
 footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 </style>
 
@@ -155,7 +152,7 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
     <p>目录</p>
     <ol>
       <li><a href="#why">为什么需要它</a></li>
-      <li><a href="#how">工作方式</a></li>
+      <li><a href="#how">业务架构</a></li>
       <li><a href="#concepts">核心概念</a></li>
       <li><a href="#features">功能一览</a></li>
       <li><a href="#build">用聊天建流程</a></li>
@@ -163,6 +160,7 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
       <li><a href="#annotate">标注发回 agent</a></li>
       <li><a href="#publish">发布与运行</a></li>
       <li><a href="#embed">嵌入 MSPbots</a></li>
+      <li><a href="#arch">技术架构</a></li>
       <li><a href="#deploy">部署与配置</a></li>
       <li><a href="#faq">常见问题</a></li>
     </ol>
@@ -204,14 +202,65 @@ footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
     </section>
 
     <section id="how">
-      <h2><small>工作方式</small>四个角色，一张图</h2>
+      <h2><small>业务架构</small>谁和谁打交道</h2>
       <p>Agent Flow 不是一个新的 agent，也不是工作流引擎。它是你现有 agent 旁边的“流程本”：agent 通过 MCP 读写流程图、按图执行；人通过画布查看和修改同一张图。</p>
-      <div class="flowline" role="list">
-        <div class="hop" role="listitem"><b>MSPbots 对话</b><span>人提出需求、收到汇报，标注也送到这里</span></div>
-        <div class="hop" role="listitem"><b>你的 agent</b><span>理解需求，建图、改图，按图调用工具</span></div>
-        <div class="hop core" role="listitem"><b>Agent Flow</b><span>存流程、做校验、管版本，执行时逐步把关</span></div>
-        <div class="hop" role="listitem"><b>画布</b><span>嵌在对话旁边，实时显示并可直接修改</span></div>
-      </div>
+      <figure>
+        <div class="diagram">
+          <svg viewBox="0 0 580 412" role="img" aria-label="业务架构：人在 MSPbots 页面里用对话和画布，agent 通过 MCP 建图和按图执行，自己调用 MSP 系统的工具；Agent Flow 把变更推送到画布，并读取工具目录。">
+            <defs>
+              <marker id="biz-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+            <rect x="10" y="10" width="560" height="122" rx="12" fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-dasharray="5 4"/>
+            <text x="24" y="28" font-size="11" fill="currentColor" fill-opacity="0.65">MSPbots 页面</text>
+
+            <rect x="24" y="40" width="240" height="78" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="144" y="72" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">对话（3/5）</text>
+            <text x="144" y="96" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.7">流程负责人 · 审阅人</text>
+
+            <rect x="364" y="40" width="192" height="78" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="460" y="72" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">画布（2/5）</text>
+            <text x="460" y="96" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.7">查看 · 修改 · 画框标注</text>
+
+            <line x1="362" y1="79" x2="268" y2="79" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="314" y="71" font-size="11" text-anchor="middle" fill="currentColor">标注</text>
+
+            <rect x="24" y="200" width="240" height="72" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="144" y="230" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">你的 agent</text>
+            <text x="144" y="253" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.7">按 skill 建图、按图执行</text>
+
+            <rect x="364" y="200" width="192" height="72" rx="10" stroke-width="1.6" style="fill: var(--accent-soft); stroke: var(--accent)"/>
+            <text x="460" y="230" font-size="14" font-weight="700" text-anchor="middle" style="fill: var(--accent)">Agent Flow</text>
+            <text x="460" y="253" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.75">存图 · 校验 · 版本 · 把关</text>
+
+            <line x1="100" y1="120" x2="100" y2="197" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="108" y="164" font-size="11" fill="currentColor">需求 · 标注通知</text>
+            <line x1="214" y1="197" x2="214" y2="120" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="222" y="164" font-size="11" fill="currentColor">进度与汇报</text>
+
+            <line x1="266" y1="224" x2="361" y2="224" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="314" y="216" font-size="11" text-anchor="middle" fill="currentColor">建图 · 执行</text>
+            <line x1="361" y1="250" x2="266" y2="250" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="314" y="266" font-size="11" text-anchor="middle" fill="currentColor">校验 · 下一步</text>
+
+            <line x1="430" y1="197" x2="430" y2="120" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="422" y="164" font-size="11" text-anchor="end" fill="currentColor">实时推送</text>
+            <line x1="492" y1="120" x2="492" y2="197" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="500" y="164" font-size="11" fill="currentColor">人工修改</text>
+
+            <line x1="144" y1="274" x2="144" y2="335" stroke="currentColor" stroke-width="1.4" marker-end="url(#biz-arrow)"/>
+            <text x="152" y="309" font-size="11" fill="currentColor">调用工具</text>
+            <rect x="24" y="338" width="240" height="62" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="144" y="364" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">MSP 系统</text>
+            <text x="144" y="386" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.7">Autotask · M365 · Teams</text>
+
+            <polyline points="460,274 460,369 268,369" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" stroke-opacity="0.7" marker-end="url(#biz-arrow)"/>
+            <text x="364" y="361" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.8">读取工具目录</text>
+          </svg>
+        </div>
+        <figcaption>业务架构。人只在 MSPbots 页面里工作：左边对话，右边画布。agent 是唯一调用 MSP 系统的一方；Agent Flow 不碰业务数据，只读取工具目录（虚线），负责存图、校验和逐步把关，并把每次变更实时推送到画布。</figcaption>
+      </figure>
       <p class="muted">工具（Autotask、Microsoft 365、Teams 等）仍由 agent 自己调用；Agent Flow 只决定“下一步做什么、能走哪条线”，并记录每一步的结果。</p>
     </section>
 
@@ -366,9 +415,95 @@ Read the flow with flow_get, apply the changes to the draft, then summarise what
       <p class="muted">本地可以用 <code>http://localhost:4100/host?flow=&lt;流程 id&gt;</code> 的模拟对话页试嵌入和标注。</p>
     </section>
 
+    <section id="arch">
+      <h2><small>技术架构</small>一次请求经过哪里</h2>
+      <p>画布和 agent 从两个入口进来，落到同一套服务和同一份数据上。所有写操作都转成 Op，走同一条路径：校验、乐观锁、修改历史、推送。</p>
+      <figure>
+        <div class="diagram">
+          <svg viewBox="0 0 760 478" role="img" aria-label="技术架构：浏览器画布经 REST 读写、经 SSE 收推送；agent 经 MCP 调用；三者进入 Fastify 的 services，services 经 repositories 和 Kysely 写入 MySQL 或 PostgreSQL，经事件总线推送到 SSE，并从工具 MCP 服务定时刷新工具目录。">
+            <defs>
+              <marker id="tech-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <rect x="20" y="16" width="360" height="76" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="200" y="42" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">浏览器 · 画布（apps/web）</text>
+            <text x="200" y="63" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.75">React 19 · React Flow · 本地用 core 校验</text>
+            <text x="200" y="81" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.6">嵌在 MSPbots 页面，标注经 postMessage 送回对话</text>
+
+            <rect x="420" y="16" width="320" height="76" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="580" y="46" font-size="14" font-weight="700" text-anchor="middle" fill="currentColor">你的 agent（MCP 客户端）</text>
+            <text x="580" y="70" font-size="12" text-anchor="middle" fill="currentColor" fill-opacity="0.75">flow-designer · flow-runner skill</text>
+
+            <rect x="20" y="130" width="720" height="242" rx="12" fill="none" style="stroke: var(--accent)" stroke-width="1.4"/>
+            <text x="34" y="148" font-size="11" font-weight="700" style="fill: var(--accent)">apps/server · Fastify</text>
+
+            <rect x="40" y="160" width="160" height="40" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
+            <text x="120" y="185" font-size="12" font-weight="700" text-anchor="middle" fill="currentColor">REST /api</text>
+            <rect x="220" y="160" width="140" height="40" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
+            <text x="290" y="185" font-size="12" font-weight="700" text-anchor="middle" fill="currentColor">SSE /api/events</text>
+            <rect x="400" y="160" width="80" height="40" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
+            <text x="440" y="185" font-size="12" text-anchor="middle" fill="currentColor">事件总线</text>
+            <rect x="500" y="160" width="160" height="40" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
+            <text x="580" y="185" font-size="12" font-weight="700" text-anchor="middle" fill="currentColor">MCP /mcp</text>
+
+            <rect x="40" y="230" width="680" height="48" rx="8" stroke-width="1.4" style="fill: var(--accent-soft); stroke: var(--accent)"/>
+            <text x="380" y="250" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">services · 业务规则</text>
+            <text x="380" y="269" font-size="11.5" text-anchor="middle" fill="currentColor" fill-opacity="0.8">流程编辑（Op · 乐观锁 · 修改历史）· 运行把关 · 校验（packages/core，与画布共用）</text>
+
+            <rect x="40" y="306" width="340" height="44" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
+            <text x="210" y="333" font-size="12" text-anchor="middle" fill="currentColor">repositories · Kysely（只在这一层写 SQL）</text>
+            <rect x="400" y="306" width="320" height="44" rx="8" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--surface)"/>
+            <text x="560" y="333" font-size="12" text-anchor="middle" fill="currentColor">工具目录（定时刷新，失败保留上次）</text>
+
+            <rect x="40" y="410" width="340" height="52" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="210" y="433" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">MySQL / PostgreSQL</text>
+            <text x="210" y="451" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.7">graphs · versions · events · runs · steps</text>
+            <rect x="400" y="410" width="320" height="52" rx="10" stroke="currentColor" stroke-opacity="0.45" style="fill: var(--bg)"/>
+            <text x="560" y="433" font-size="13" font-weight="700" text-anchor="middle" fill="currentColor">工具 MCP 服务</text>
+            <text x="560" y="451" font-size="11" text-anchor="middle" fill="currentColor" fill-opacity="0.7">Autotask · Microsoft 365 · MSPbots</text>
+
+            <line x1="100" y1="94" x2="100" y2="157" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <text x="108" y="120" font-size="11" fill="currentColor">读写（带修订号）</text>
+            <line x1="290" y1="157" x2="290" y2="94" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <text x="298" y="120" font-size="11" fill="currentColor">推送变更</text>
+            <line x1="580" y1="94" x2="580" y2="157" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <text x="588" y="120" font-size="11" fill="currentColor">flow_* · run_*</text>
+
+            <line x1="120" y1="202" x2="120" y2="227" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <line x1="580" y1="202" x2="580" y2="227" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <line x1="440" y1="228" x2="440" y2="203" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <text x="448" y="220" font-size="10.5" fill="currentColor" fill-opacity="0.8">发布</text>
+            <line x1="398" y1="180" x2="363" y2="180" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+
+            <line x1="210" y1="280" x2="210" y2="303" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <line x1="560" y1="280" x2="560" y2="303" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <line x1="210" y1="352" x2="210" y2="407" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <text x="218" y="384" font-size="11" fill="currentColor">SQL</text>
+            <line x1="560" y1="352" x2="560" y2="407" stroke="currentColor" stroke-width="1.4" marker-end="url(#tech-arrow)"/>
+            <text x="568" y="384" font-size="11" fill="currentColor">tools/list</text>
+          </svg>
+        </div>
+        <figcaption>技术架构。画布和 agent 的写入都进入同一个 services 层：校验用前后端共用的 <code>packages/core</code>，写库前检查修订号（乐观锁），写完把事件发到总线，再经 SSE 推给所有打开的画布。数据库方言由 <code>DB_DIALECT</code> 切换，换 PostgreSQL 不改 repository。多实例部署时，事件总线换成 Redis。</figcaption>
+      </figure>
+      <div class="table">
+        <table>
+          <thead><tr><th>部分</th><th>技术</th><th>职责</th></tr></thead>
+          <tbody>
+            <tr><td><code>apps/web</code></td><td>React 19 · @xyflow/react · Tailwind</td><td>画布、面板、标注、实时播放；一套布局兼顾嵌入和单独打开</td></tr>
+            <tr><td><code>apps/server</code></td><td>Fastify · MCP SDK · Kysely</td><td>REST、MCP、SSE 三个入口；业务规则；数据访问</td></tr>
+            <tr><td><code>packages/core</code></td><td>TypeScript · zod</td><td>流程模型、Op、校验器、引用解析、流转判定，前后端共用一份</td></tr>
+            <tr><td><code>apps/mock-msp</code></td><td>Node · MCP SDK</td><td>模拟 MSP 租户和 MSPbots 对话页，用于开发和验证</td></tr>
+            <tr><td><code>skills/</code></td><td>Markdown</td><td>flow-designer（建图、改图、处理标注）· flow-runner（按图执行）</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section id="deploy">
       <h2><small>运维</small>部署与配置</h2>
-      <p>前后端在同一个仓库：<code>apps/server</code>（Fastify + MCP）、<code>apps/web</code>（画布）、<code>packages/core</code>（模型和校验，前后端共用）。数据库默认 MySQL，可切换 PostgreSQL。</p>
+      <p>前后端在同一个仓库，模块划分见上一节。数据库默认 MySQL，可切换 PostgreSQL。</p>
       <pre><code>npm install
 npm run db:migrate
 npm run build
