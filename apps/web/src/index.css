@@ -90,12 +90,6 @@ body {
   border-radius: 8px;
 }
 
-.af-canvas .react-flow__attribution {
-  background: transparent;
-  color: #94a3b8;
-  font-size: 10px;
-}
-
 /* ---- Live playback of someone else's change. Keyframes use `scale`, not `transform`, which carries positions. */
 
 .af-enter {

@@ -295,6 +295,7 @@ export function FlowCanvas(props: Props) {
       snapGrid={[GRID, GRID]}
       fitView
       fitViewOptions={{ padding: fitPadding(props.insets), maxZoom: 1 }}
+      proOptions={{ hideAttribution: true }}
       panOnScroll
       minZoom={0.15}
       maxZoom={1.75}
