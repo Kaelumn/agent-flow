@@ -29,7 +29,7 @@ export function IssuesPanel({ issues, doc, onFocus }: { issues: Issue[]; doc: Gr
       ]
         .filter((g) => g.items.length)
         .map((group) => (
-          <section key={group.title} className="px-5 pt-5">
+          <section key={group.title} className="px-4 pt-4">
             <h3 className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
               {group.title}
               <span className="rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-500">{group.items.length}</span>

@@ -1,7 +1,7 @@
 import type { FlowNode, GraphDoc, InputParam, Issue, NodePatch, OnError, OutputField, SkillDefinition, ToolDefinition } from '@agent-flow/core';
 import { AlertCircle, AlertTriangle, Bot, CircleCheck, CircleMinus, CircleX, Copy, Play, Plus, Sparkles, Trash2, Wrench, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button, cx, Field, IconButton, Input, Section, Segmented, Select, Switch, Textarea, useToast } from '../../components/ui';
+import { Button, cx, Field, IconButton, Input, PanelHead, SaveBar, Section, Segmented, Select, Switch, Textarea, useToast } from '../../components/ui';
 import { stepStyle } from '../connectors';
 import { availableRefs } from '../refs';
 import { RefInput } from './RefInput';
@@ -100,8 +100,8 @@ export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }
           <Field label="Title">
             <Input value={draft.title} onChange={(e) => set('title', e.target.value)} maxLength={120} />
           </Field>
-          <Field label="Instruction for the agent" hint="What to do or watch out for at this step. References are filled in when the run reaches it.">
-            <RefInput multiline rows={4} value={draft.instruction} onChange={(v) => set('instruction', v)} refs={refs} placeholder="e.g. Only continue when the ticket is a new-hire request" />
+          <Field label="Instruction for the agent" hint="References are filled in when the run reaches this step.">
+            <RefInput multiline rows={3} value={draft.instruction} onChange={(v) => set('instruction', v)} refs={refs} placeholder="What should the agent do or watch out for?" />
           </Field>
         </Section>
 
@@ -132,7 +132,7 @@ export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }
               <Segmented value={draft.mode} onChange={(mode) => set('mode', mode)} options={MODES} />
               {draft.mode === 'tool' && <ToolPicker tools={tools} value={draft.toolName} onChange={(name) => set('toolName', name)} />}
               {draft.mode === 'skill' && <SkillPicker skills={skills} value={draft.skillName} onChange={(name) => set('skillName', name)} />}
-              <p className="text-[12px] leading-relaxed text-slate-500">
+              <p className="line-clamp-2 text-[11.5px] leading-snug text-slate-500">
                 {draft.mode === 'tool' && tool ? tool.description : draft.mode === 'skill' && skill ? skill.description : MODES.find((m) => m.value === draft.mode)!.hint}
               </p>
             </Section>
@@ -177,14 +177,11 @@ export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }
         )}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-slate-200 bg-white px-5 py-3">
-        <Button variant="primary" onClick={save} disabled={!dirty || saving || !draft.title.trim()}>{saving ? 'Saving…' : 'Save changes'}</Button>
-        <Button variant="ghost" onClick={() => setDraft(toDraft(node))} disabled={!dirty}>Discard</Button>
-        {dirty && <span className="text-[11px] text-amber-600">Unsaved</span>}
+      <SaveBar dirty={dirty} saving={saving} disabled={!draft.title.trim()} onSave={save} onDiscard={() => setDraft(toDraft(node))}>
         {node.type !== 'start' && (
-          <IconButton label="Delete this step" onClick={onDelete} className="ml-auto text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 size={15} /></IconButton>
+          <IconButton label="Delete this step" onClick={onDelete} className="text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 size={15} /></IconButton>
         )}
-      </div>
+      </SaveBar>
     </div>
   );
 }
@@ -194,24 +191,23 @@ function PanelHeader({ node, tool, onCopyId }: { node: FlowNode; tool?: ToolDefi
   const Icon = node.type === 'start' ? Play : node.type === 'end' ? CircleCheck : style.icon;
   const tile = node.type === 'start' ? 'bg-emerald-500 text-white ring-emerald-500' : node.type === 'end' ? 'bg-slate-100 text-slate-500 ring-slate-200' : style.tile;
   return (
-    <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
-      <span className={cx('grid size-10 shrink-0 place-items-center rounded-xl ring-1', tile)}><Icon size={18} strokeWidth={1.75} /></span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] font-semibold text-slate-900">{node.title}</div>
-        <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500">
-          <span>{TYPE_LABEL[node.type]}{node.type === 'tool' && ` · ${style.label}`}</span>
-          <button type="button" onClick={onCopyId} title="Copy node id" className="flex items-center gap-1 rounded px-1 font-mono text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-            {node.id}<Copy size={10} />
-          </button>
-        </div>
-      </div>
-    </div>
+    <PanelHead
+      icon={<Icon size={16} strokeWidth={1.75} />}
+      tile={tile}
+      title={node.title}
+      subtitle={node.type === 'tool' ? `${TYPE_LABEL[node.type]} · ${style.label}` : TYPE_LABEL[node.type]}
+      aside={
+        <button type="button" onClick={onCopyId} title="Copy node id" className="flex max-w-36 items-center gap-1 rounded bg-slate-100 px-1.5 py-px font-mono text-[10.5px] text-slate-500 hover:bg-slate-200 hover:text-slate-700">
+          <span className="truncate">{node.id}</span><Copy size={10} className="shrink-0" />
+        </button>
+      }
+    />
   );
 }
 
 function NodeIssues({ issues }: { issues: Issue[] }) {
   return (
-    <ul className="space-y-1.5 border-b border-slate-100 px-5 py-3">
+    <ul className="space-y-1.5 border-b border-slate-100 px-4 py-3">
       {issues.map((issue, i) => (
         <li key={i} className={cx('flex gap-2 rounded-lg px-2.5 py-2 text-[12px] leading-snug', issue.severity === 'error' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800')}>
           {issue.severity === 'error' ? <AlertCircle size={14} className="mt-px shrink-0" /> : <AlertTriangle size={14} className="mt-px shrink-0" />}
@@ -230,8 +226,8 @@ function ArgsEditor({ tool, value, refs, onChange }: { tool: ToolDefinition; val
   if (!params.length) return <p className="text-[12px] text-slate-500">This tool takes no arguments.</p>;
   return (
     <div className="space-y-3.5">
-      <p className="-mt-1 text-[11.5px] leading-relaxed text-slate-500">
-        Say where each value comes from. Use <BracesHint /> to insert run inputs or earlier results; anything else is guidance for the agent.
+      <p className="-mt-1 text-[11px] leading-snug text-slate-400">
+        Use <BracesHint /> for run inputs and earlier results; plain text tells the agent where to find the value.
       </p>
       {params.map(([name, schema]) => (
         <div key={name}>
@@ -287,7 +283,7 @@ function InputsEditor({ inputs, onChange }: { inputs: InputParam[]; onChange: (v
 function OutputsEditor({ outputs, onChange }: { outputs: OutputField[]; onChange: (v: OutputField[]) => void }) {
   const update = (i: number, patch: Partial<OutputField>) => onChange(outputs.map((f, j) => (j === i ? { ...f, ...patch } : f)));
   return (
-    <Field label="Expected fields" hint="Optional. Tells the agent what to produce and suggests these fields when later steps insert a reference. Nothing is enforced.">
+    <Field label="Expected fields" hint="Optional. Guides the agent and the { } suggestions; nothing is checked.">
       <div className="space-y-2">
         {outputs.map((field, i) => (
           <div key={i} className="flex items-center gap-2">

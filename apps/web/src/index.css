@@ -172,3 +172,10 @@ body {
     translate: 8px 0;
   }
 }
+
+/* Thin, light scrollbars inside the panels so they do not eat the narrow card. */
+.af-dock,
+.af-dock * {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}

@@ -50,11 +50,11 @@ export function SkillPicker({ skills, value, onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className={cx('flex w-full items-center gap-3 rounded-lg border bg-white px-3 py-2.5 text-left shadow-xs transition-colors hover:border-slate-300', open ? 'border-indigo-500 ring-3 ring-indigo-500/15' : 'border-slate-200')}
+          className={cx('flex w-full items-center gap-2.5 rounded-lg border bg-white px-2.5 py-2 text-left shadow-xs transition-colors hover:border-slate-300', open ? 'border-indigo-500 ring-3 ring-indigo-500/15' : 'border-slate-200')}
         >
           {selected ? (
             <>
-              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-fuchsia-50 text-fuchsia-600 ring-1 ring-fuchsia-100"><Sparkles size={16} strokeWidth={1.75} /></span>
+              <span className="grid size-7 shrink-0 place-items-center rounded-md bg-fuchsia-50 text-fuchsia-600 ring-1 ring-fuchsia-100"><Sparkles size={14} strokeWidth={1.75} /></span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-mono text-[12.5px] font-medium text-slate-900">{selected.name}</span>
                 <span className="block truncate text-[11.5px] text-slate-500">Skill</span>

@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, X } from 'lucide-react';
+import { Check, CircleAlert, CircleCheck, X } from 'lucide-react';
 import {
   createContext,
   useCallback,
@@ -106,23 +106,23 @@ export function Tooltip({ content, side = 'top', children }: { content: ReactNod
 const control =
   'w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-900 shadow-xs transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none disabled:bg-slate-50';
 
-export const Input = ({ className, ...props }: ComponentProps<'input'>) => <input className={cx(control, 'h-9', className)} {...props} />;
+export const Input = ({ className, ...props }: ComponentProps<'input'>) => <input className={cx(control, 'h-8', className)} {...props} />;
 
 export const Textarea = ({ className, ...props }: ComponentProps<'textarea'>) => (
-  <textarea className={cx(control, 'min-h-20 resize-y py-2 leading-relaxed', className)} {...props} />
+  <textarea className={cx(control, 'min-h-16 resize-y py-1.5 leading-relaxed', className)} {...props} />
 );
 
-export const Select = ({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) => <select className={cx(control, 'h-9 pr-8', className)} {...props} />;
+export const Select = ({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) => <select className={cx(control, 'h-8 pr-8', className)} {...props} />;
 
 export function Field({ label, hint, error, action, children }: { label: ReactNode; hint?: ReactNode; error?: string | null; action?: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label className="text-xs font-medium text-slate-700">{label}</label>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <label className="text-[12px] font-medium text-slate-600">{label}</label>
         {action}
       </div>
       {children}
-      {error ? <p className="mt-1.5 text-xs text-rose-600">{error}</p> : hint && <p className="mt-1.5 text-[11.5px] leading-relaxed text-slate-500">{hint}</p>}
+      {error ? <p className="mt-1 text-[11.5px] text-rose-600">{error}</p> : hint && <p className="mt-1 text-[11px] leading-snug text-slate-400">{hint}</p>}
     </div>
   );
 }
@@ -137,7 +137,7 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
           type="button"
           onClick={() => onChange(o.value)}
           className={cx(
-            'flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium transition-all',
+            'flex h-7 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium transition-all',
             o.value === value ? cx('bg-white shadow-sm', o.activeClass ?? 'text-slate-900') : 'text-slate-500 hover:text-slate-800',
           )}
         >
@@ -167,15 +167,48 @@ export function Switch({ checked, onChange, label, description }: { checked: boo
 /** A titled block inside a side panel. */
 export function Section({ title, action, children, className }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx('border-b border-slate-100 px-5 py-4 last:border-b-0', className)}>
+    <section className={cx('border-b border-slate-100 px-4 py-3.5 last:border-b-0', className)}>
       {(title || action) && (
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="mb-2.5 flex items-center justify-between gap-2">
           {title && <h3 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{title}</h3>}
           {action}
         </div>
       )}
-      <div className="space-y-4">{children}</div>
+      <div className="space-y-3">{children}</div>
     </section>
+  );
+}
+
+/** The top of a side panel: what is being edited, in one line each for name and kind. */
+export function PanelHead({ icon, tile, title, subtitle, aside }: { icon: ReactNode; tile: string; title: ReactNode; subtitle: ReactNode; aside?: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+      <span className={cx('grid size-9 shrink-0 place-items-center rounded-lg ring-1', tile)}>{icon}</span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13.5px] font-semibold text-slate-900">{title}</div>
+        <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11.5px] text-slate-500">
+          <span className="min-w-0 truncate">{subtitle}</span>
+          {aside && <span className="ml-auto shrink-0">{aside}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The bottom of a side panel. Save and discard appear only when there is something to save. */
+export function SaveBar({ dirty, saving, disabled, onSave, onDiscard, children }: { dirty: boolean; saving: boolean; disabled?: boolean; onSave: () => void; onDiscard?: () => void; children?: ReactNode }) {
+  return (
+    <div className="flex h-12 shrink-0 items-center gap-2 border-t border-slate-100 bg-white px-4">
+      {dirty ? (
+        <>
+          <Button variant="primary" size="sm" onClick={onSave} disabled={saving || disabled}>{saving ? 'Saving…' : 'Save changes'}</Button>
+          {onDiscard && <Button variant="ghost" size="sm" onClick={onDiscard}>Discard</Button>}
+        </>
+      ) : (
+        <span className="flex items-center gap-1.5 text-[12px] text-slate-400"><Check size={13} />No unsaved changes</span>
+      )}
+      <div className="ml-auto flex items-center gap-1">{children}</div>
+    </div>
   );
 }
 

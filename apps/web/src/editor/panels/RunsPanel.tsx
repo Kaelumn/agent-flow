@@ -71,7 +71,7 @@ export function RunsPanel({ graphId, runSignal, selected, runDoc, onSelect }: Pr
     <ul className="divide-y divide-slate-100">
       {runs?.map((run) => (
         <li key={run.id}>
-          <button type="button" className="group flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-slate-50" onClick={() => open(run)}>
+          <button type="button" className="group flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50" onClick={() => open(run)}>
             <StatusDot tone={RUN_TONE[run.status]} className={run.status === 'running' ? 'animate-pulse' : undefined} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 text-[13px]">
@@ -98,7 +98,7 @@ function RunView({ detail: { run, steps }, runDoc, onBack, onCancel }: { detail:
   const title = (id: string | null) => (id && runDoc?.nodes.find((n) => n.id === id)?.title) || id || '';
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-slate-100 px-5 py-4">
+      <div className="border-b border-slate-100 px-4 py-3">
         <button type="button" onClick={onBack} className="-ml-1 mb-3 flex items-center gap-1 rounded px-1 text-[12px] text-slate-500 hover:text-slate-800"><ArrowLeft size={13} />All runs</button>
         <div className="flex items-center gap-2">
           <Badge tone={RUN_TONE[run.status]} dot className="capitalize">{run.status}</Badge>
@@ -125,7 +125,7 @@ function RunView({ detail: { run, steps }, runDoc, onBack, onCancel }: { detail:
         )}
       </div>
 
-      <ol className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+      <ol className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {steps.map((s, i) => {
           const mark = STEP_ICON[s.status];
           return (
