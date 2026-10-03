@@ -50,7 +50,7 @@ export function SkillPicker({ skills, value, onChange }: Props) {
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className={cx('flex w-full items-center gap-2.5 rounded-lg border bg-white px-2.5 py-2 text-left shadow-xs transition-colors hover:border-slate-300', open ? 'border-indigo-500 ring-3 ring-indigo-500/15' : 'border-slate-200')}
+          className={cx('flex w-full items-center gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors', open ? 'border-indigo-400 bg-white ring-3 ring-indigo-500/15' : 'border-transparent bg-slate-100/80 hover:bg-slate-100')}
         >
           {selected ? (
             <>

@@ -1,7 +1,7 @@
 import type { FlowNode, GraphDoc, InputParam, Issue, NodePatch, OnError, OutputField, SkillDefinition, ToolDefinition } from '@agent-flow/core';
 import { AlertCircle, AlertTriangle, Bot, CircleCheck, CircleMinus, CircleX, Copy, Play, Plus, Sparkles, Trash2, Wrench, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Button, cx, Field, IconButton, Input, PanelHead, SaveBar, Section, Segmented, Select, Switch, Textarea, useToast } from '../../components/ui';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Button, cx, Field, IconButton, Input, PanelHead, SaveBar, Section, TitleInput, Segmented, Select, Switch, Textarea, useToast } from '../../components/ui';
 import { stepStyle } from '../connectors';
 import { availableRefs } from '../refs';
 import { RefInput } from './RefInput';
@@ -93,15 +93,12 @@ export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <PanelHeader node={node} tool={tools.find((t) => t.name === node.tool?.name)} onCopyId={() => navigator.clipboard.writeText(node.id).then(() => notify(`Copied "${node.id}"`))} />
+        <PanelHeader node={node} title={<TitleInput value={draft.title} onChange={(e) => set('title', e.target.value)} maxLength={120} placeholder="Name this step" aria-label="Step title" />} tool={tools.find((t) => t.name === node.tool?.name)} onCopyId={() => navigator.clipboard.writeText(node.id).then(() => notify(`Copied "${node.id}"`))} />
         {issues.length > 0 && <NodeIssues issues={issues} />}
 
-        <Section title="Step">
-          <Field label="Title">
-            <Input value={draft.title} onChange={(e) => set('title', e.target.value)} maxLength={120} />
-          </Field>
-          <Field label="Instruction for the agent" hint="References are filled in when the run reaches this step.">
-            <RefInput multiline rows={3} value={draft.instruction} onChange={(v) => set('instruction', v)} refs={refs} placeholder="What should the agent do or watch out for?" />
+        <Section title="Instruction">
+          <Field hint="References are filled in when the run reaches this step.">
+            <RefInput multiline rows={3} value={draft.instruction} onChange={(v) => set('instruction', v)} refs={refs} placeholder="What should the agent do or watch out for here?" />
           </Field>
         </Section>
 
@@ -186,7 +183,7 @@ export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }
   );
 }
 
-function PanelHeader({ node, tool, onCopyId }: { node: FlowNode; tool?: ToolDefinition; onCopyId: () => void }) {
+function PanelHeader({ node, title, tool, onCopyId }: { node: FlowNode; title: ReactNode; tool?: ToolDefinition; onCopyId: () => void }) {
   const style = stepStyle(node, tool);
   const Icon = node.type === 'start' ? Play : node.type === 'end' ? CircleCheck : style.icon;
   const tile = node.type === 'start' ? 'bg-emerald-500 text-white ring-emerald-500' : node.type === 'end' ? 'bg-slate-100 text-slate-500 ring-slate-200' : style.tile;
@@ -194,7 +191,7 @@ function PanelHeader({ node, tool, onCopyId }: { node: FlowNode; tool?: ToolDefi
     <PanelHead
       icon={<Icon size={16} strokeWidth={1.75} />}
       tile={tile}
-      title={node.title}
+      title={title}
       subtitle={node.type === 'tool' ? `${TYPE_LABEL[node.type]} · ${style.label}` : TYPE_LABEL[node.type]}
       aside={
         <button type="button" onClick={onCopyId} title="Copy node id" className="flex max-w-36 items-center gap-1 rounded bg-slate-100 px-1.5 py-px font-mono text-[10.5px] text-slate-500 hover:bg-slate-200 hover:text-slate-700">
@@ -207,9 +204,9 @@ function PanelHeader({ node, tool, onCopyId }: { node: FlowNode; tool?: ToolDefi
 
 function NodeIssues({ issues }: { issues: Issue[] }) {
   return (
-    <ul className="space-y-1.5 border-b border-slate-100 px-4 py-3">
+    <ul className="border-b border-slate-100">
       {issues.map((issue, i) => (
-        <li key={i} className={cx('flex gap-2 rounded-lg px-2.5 py-2 text-[12px] leading-snug', issue.severity === 'error' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800')}>
+        <li key={i} className={cx('flex gap-2 border-l-2 px-4 py-2 text-[12px] leading-snug', issue.severity === 'error' ? 'border-rose-500 bg-rose-50/70 text-rose-700' : 'border-amber-400 bg-amber-50/70 text-amber-800')}>
           {issue.severity === 'error' ? <AlertCircle size={14} className="mt-px shrink-0" /> : <AlertTriangle size={14} className="mt-px shrink-0" />}
           <span>{issue.message}</span>
         </li>

@@ -68,8 +68,8 @@ export function Dock<T extends string>({ tabs, open, narrow, onOpen, onClose, ch
           style={narrow ? { left: EDGE, right: EDGE, bottom: EDGE, height: `${SHEET_SHARE * 100}%` } : { top: EDGE, bottom: EDGE, right: EDGE + RAIL + EDGE, width: CARD }}
           className="af-dock absolute z-10 flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10"
         >
-          <header className="flex h-9 shrink-0 items-center justify-between bg-slate-50/80 pr-1 pl-4">
-            <span className="text-[12px] font-medium text-slate-500">{current.label}</span>
+          <header className="flex h-9 shrink-0 items-center justify-between pr-1 pl-4">
+            <span className="text-[11.5px] text-slate-400">{current.label}</span>
             <IconButton label="Close panel (Esc)" onClick={onClose}><X size={15} /></IconButton>
           </header>
           <div className="min-h-0 flex-1">{children}</div>

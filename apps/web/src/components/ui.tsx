@@ -104,7 +104,7 @@ export function Tooltip({ content, side = 'top', children }: { content: ReactNod
 // ---- Form controls
 
 const control =
-  'w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-900 shadow-xs transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/15 focus:outline-none disabled:bg-slate-50';
+  'w-full rounded-md border border-transparent bg-slate-100/80 px-2.5 text-[13px] text-slate-900 transition-colors placeholder:text-slate-400 hover:bg-slate-100 focus:border-indigo-400 focus:bg-white focus:ring-3 focus:ring-indigo-500/15 focus:outline-none disabled:opacity-60';
 
 export const Input = ({ className, ...props }: ComponentProps<'input'>) => <input className={cx(control, 'h-8', className)} {...props} />;
 
@@ -114,13 +114,15 @@ export const Textarea = ({ className, ...props }: ComponentProps<'textarea'>) =>
 
 export const Select = ({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) => <select className={cx(control, 'h-8 pr-8', className)} {...props} />;
 
-export function Field({ label, hint, error, action, children }: { label: ReactNode; hint?: ReactNode; error?: string | null; action?: ReactNode; children: ReactNode }) {
+export function Field({ label, hint, error, action, children }: { label?: ReactNode; hint?: ReactNode; error?: string | null; action?: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <label className="text-[12px] font-medium text-slate-600">{label}</label>
-        {action}
-      </div>
+      {(label || action) && (
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <label className="text-[12px] text-slate-500">{label}</label>
+          {action}
+        </div>
+      )}
       {children}
       {error ? <p className="mt-1 text-[11.5px] text-rose-600">{error}</p> : hint && <p className="mt-1 text-[11px] leading-snug text-slate-400">{hint}</p>}
     </div>
@@ -167,10 +169,10 @@ export function Switch({ checked, onChange, label, description }: { checked: boo
 /** A titled block inside a side panel. */
 export function Section({ title, action, children, className }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx('border-b border-slate-100 px-4 py-3.5 last:border-b-0', className)}>
+    <section className={cx('px-4 pt-5 last:pb-5', className)}>
       {(title || action) && (
         <div className="mb-2.5 flex items-center justify-between gap-2">
-          {title && <h3 className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{title}</h3>}
+          {title && <h3 className="text-[13px] font-semibold text-slate-900">{title}</h3>}
           {action}
         </div>
       )}
@@ -182,10 +184,10 @@ export function Section({ title, action, children, className }: { title?: ReactN
 /** The top of a side panel: what is being edited, in one line each for name and kind. */
 export function PanelHead({ icon, tile, title, subtitle, aside }: { icon: ReactNode; tile: string; title: ReactNode; subtitle: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-      <span className={cx('grid size-9 shrink-0 place-items-center rounded-lg ring-1', tile)}>{icon}</span>
+    <div className="flex items-center gap-3 border-b border-slate-100 px-4 pt-1 pb-4">
+      <span className={cx('grid size-10 shrink-0 place-items-center rounded-xl ring-1', tile)}>{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-semibold text-slate-900">{title}</div>
+        <div className="truncate text-[15px] font-semibold text-slate-900">{title}</div>
         <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[11.5px] text-slate-500">
           <span className="min-w-0 truncate">{subtitle}</span>
           {aside && <span className="ml-auto shrink-0">{aside}</span>}
@@ -194,6 +196,14 @@ export function PanelHead({ icon, tile, title, subtitle, aside }: { icon: ReactN
     </div>
   );
 }
+
+/** A heading that is also the field that edits it. */
+export const TitleInput = ({ className, ...props }: ComponentProps<'input'>) => (
+  <input
+    className={cx('-mx-1.5 w-[calc(100%+12px)] rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-[15px] font-semibold text-slate-900 transition-colors placeholder:font-normal placeholder:text-slate-400 hover:bg-slate-100 focus:border-indigo-400 focus:bg-white focus:ring-3 focus:ring-indigo-500/15 focus:outline-none', className)}
+    {...props}
+  />
+);
 
 /** The bottom of a side panel. Save and discard appear only when there is something to save. */
 export function SaveBar({ dirty, saving, disabled, onSave, onDiscard, children }: { dirty: boolean; saving: boolean; disabled?: boolean; onSave: () => void; onDiscard?: () => void; children?: ReactNode }) {

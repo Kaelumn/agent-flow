@@ -42,7 +42,7 @@ export function EdgePanel({ edge, doc, onSave, onInsert, onDelete }: Props) {
         />
 
         <Section title="Path">
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-1">
+          <div className="rounded-md bg-slate-100/80 p-1">
             <div className="truncate rounded-md bg-white px-2.5 py-1.5 text-[12.5px] font-medium text-slate-800 shadow-xs">{title(edge.source)}</div>
             <ArrowDown size={13} className="mx-auto my-0.5 text-slate-400" />
             <div className="truncate rounded-md bg-white px-2.5 py-1.5 text-[12.5px] font-medium text-slate-800 shadow-xs">{title(edge.target)}</div>

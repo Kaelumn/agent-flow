@@ -1,7 +1,7 @@
 import { MousePointerClick, Workflow } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { GraphWithIssues } from '../../api/client';
-import { Field, Input, PanelHead, SaveBar, Section, Textarea } from '../../components/ui';
+import { Field, PanelHead, SaveBar, Section, Textarea, TitleInput } from '../../components/ui';
 import { fullTime, timeAgo } from '../../lib/format';
 
 interface Props {
@@ -34,8 +34,8 @@ export function FlowPanel({ graph, onSave }: Props) {
         <PanelHead
           icon={<Workflow size={16} strokeWidth={1.75} />}
           tile="bg-indigo-50 text-indigo-600 ring-indigo-100"
-          title="Flow settings"
-          subtitle={<span title={fullTime(graph.updatedAt)}>Edited {timeAgo(graph.updatedAt)}</span>}
+          title={<TitleInput value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Name this flow" aria-label="Flow name" />}
+          subtitle={<span title={fullTime(graph.updatedAt)}>Flow · edited {timeAgo(graph.updatedAt)}</span>}
         />
 
         <div className="mx-4 mt-3 flex gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11.5px] leading-snug text-slate-500">
@@ -44,10 +44,7 @@ export function FlowPanel({ graph, onSave }: Props) {
         </div>
 
         <Section title="About">
-          <Field label="Name">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
-          </Field>
-          <Field label="Description" hint="Purpose, scope and fixed values (addresses, mappings). The agent reads it first.">
+          <Field hint="The agent reads this first: purpose, scope and fixed values such as addresses and mappings.">
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={7} />
           </Field>
         </Section>
@@ -67,7 +64,7 @@ export function FlowPanel({ graph, onSave }: Props) {
 }
 
 const Stat = ({ label, value }: { label: string; value: string | number }) => (
-  <div className="rounded-lg border border-slate-200 px-3 py-2">
+  <div className="rounded-md bg-slate-100/80 px-3 py-2">
     <dd className="text-lg font-semibold text-slate-900 tabular-nums">{value}</dd>
     <dt className="text-[11px] text-slate-500">{label}</dt>
   </div>
