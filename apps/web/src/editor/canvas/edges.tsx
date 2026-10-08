@@ -1,4 +1,4 @@
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type Edge, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, type Edge, type EdgeProps } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { cx, Tooltip } from '../../components/ui';
 
@@ -30,13 +30,12 @@ const LABEL_STYLE: Record<EdgeKind, string> = {
 };
 
 /**
- * Smooth-step edge. The label sits where the edge turns towards its target: branches from one node fan out
- * horizontally there and edges from different ranks turn at different heights, so labels rarely collide.
+ * Curved edge. Branch conditions live on the source card, so only error jumps carry a label, at the middle of the path.
  * A selected edge offers "insert a step": inside its label when it has one, otherwise at the middle of the path, so the
  * button never covers the two end handles used to drag the edge onto another node.
  */
 function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, data, selected }: EdgeProps<CanvasEdge>) {
-  const [path, midX, turnY] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 14, offset: 24 });
+  const [path, midX, midY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   if (!data) return null;
   const insert = selected && data.onInsert ? data.onInsert : undefined;
   const color = edgeColor(data);
@@ -66,7 +65,7 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
           // Long labels are truncated; the tooltip shows them in full.
           <Tooltip content={data.label.length > 32 ? data.label : null}>
             <div
-              style={{ transform: `translate(-50%, -50%) translate(${targetX}px, ${turnY}px)` }}
+              style={{ transform: `translate(-50%, -50%) translate(${midX}px, ${midY}px)` }}
               className={cx(
                 'nodrag nopan pointer-events-auto absolute flex max-w-[240px] cursor-pointer items-center gap-1 rounded-full border py-0.5 pl-2.5 text-[11px] leading-5 font-medium shadow-sm',
                 insert ? 'pr-0.5' : 'pr-2.5',
@@ -84,7 +83,7 @@ function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
         )}
         {insert && !data.label && (
           // Positioned by the wrapper: CSS `scale` composes after `transform`, so scaling this element would scale its offset too.
-          <div style={{ transform: `translate(-50%, -50%) translate(${midX}px, ${turnY}px)` }} className="nodrag nopan pointer-events-auto absolute">
+          <div style={{ transform: `translate(-50%, -50%) translate(${midX}px, ${midY}px)` }} className="nodrag nopan pointer-events-auto absolute">
             <InsertButton onInsert={insert} />
           </div>
         )}

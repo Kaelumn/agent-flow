@@ -8,6 +8,29 @@ const SIZES: Record<NodeType, { width: number; height: number }> = {
 };
 
 export const nodeSize = (type: NodeType) => SIZES[type];
+
+/** Roughly how many characters of an 11px instruction preview fit on one line of a step card. */
+const PREVIEW_LINE = 46;
+
+/**
+ * Estimated height of a node's card: steps grow with the instruction preview, tags and one row per branch. Layout
+ * spaces nodes with it; the canvas draws whatever the card actually measures.
+ */
+export function nodeHeight(node: FlowNode, branches: number): number {
+  if (node.type === 'end') return SIZES.end.height;
+  const rows = branches > 1 ? 8 + branches * 24 + (branches - 1) * 4 : 0;
+  if (node.type === 'start') return 66 + rows;
+  const instruction = node.instruction?.trim() ?? '';
+  const preview = instruction ? 8 + (instruction.length > PREVIEW_LINE ? 40 : 23) : 0;
+  const tags = node.outputKey || (node.onError && node.onError.strategy !== 'stop') ? 28 : 0;
+  return 70 + preview + tags + rows;
+}
+
+const outDegrees = (doc: GraphDoc) => {
+  const out = new Map<string, number>();
+  for (const e of doc.edges) out.set(e.source, (out.get(e.source) ?? 0) + 1);
+  return out;
+};
 /** The widest and tallest node, used for spacing new nodes. */
 export const NODE_WIDTH = SIZES.tool.width;
 export const NODE_HEIGHT = SIZES.tool.height;
@@ -31,7 +54,9 @@ export function autoLayout(doc: GraphDoc): Record<string, Position> {
   g.setGraph({ rankdir: 'TB', nodesep: GAP_X, ranksep: GAP_Y, marginx: 24, marginy: 24 });
   g.setDefaultEdgeLabel(() => ({}));
   // dagre writes x/y onto the label it is given, so every node needs its own object.
-  for (const node of doc.nodes) g.setNode(node.id, { ...nodeSize(node.type) });
+  const out = outDegrees(doc);
+  const heights = new Map(doc.nodes.map((n) => [n.id, nodeHeight(n, out.get(n.id) ?? 0)]));
+  for (const node of doc.nodes) g.setNode(node.id, { width: nodeSize(node.type).width, height: heights.get(node.id)! });
   for (const edge of doc.edges) g.setEdge(edge.source, edge.target, { weight: 2 });
   const jumps = errorJumps(doc.nodes);
   for (const jump of jumps) if (!g.hasEdge(jump.source, jump.target)) g.setEdge(jump.source, jump.target, { weight: 1 });
@@ -45,7 +70,8 @@ export function autoLayout(doc: GraphDoc): Record<string, Position> {
   return Object.fromEntries(
     doc.nodes.map((n) => {
       const { x, y } = g.node(n.id);
-      const { width, height } = nodeSize(n.type);
+      const { width } = nodeSize(n.type);
+      const height = heights.get(n.id)!;
       // Every node's half-width is the same distance off the grid, so nodes sharing a centre still share it after snapping.
       return [n.id, { x: onGrid(x - width / 2), y: onGrid(y - height / 2) }];
     }),

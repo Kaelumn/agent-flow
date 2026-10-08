@@ -55,6 +55,19 @@ body {
 .af-canvas .react-flow__handle-top:hover {
   transform: translate(-50%, -50%) scale(1.3);
 }
+.af-canvas .react-flow__handle-left:hover {
+  transform: translate(-50%, -50%) scale(1.3);
+}
+.af-canvas .react-flow__handle-right:hover {
+  transform: translate(50%, -50%) scale(1.3);
+}
+/* A branch row's connection point is always shown: it is where that way out leaves the card. */
+.af-canvas .react-flow__handle.af-branch {
+  width: 8px;
+  height: 8px;
+  opacity: 1;
+  border-width: 1.5px;
+}
 /* While a connection is being drawn every target is visible. */
 .af-canvas:has(.react-flow__connection) .react-flow__handle {
   opacity: 1;

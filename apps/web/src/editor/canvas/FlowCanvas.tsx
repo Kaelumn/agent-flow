@@ -19,6 +19,7 @@ import type { LiveChange } from '../useFlow';
 import { AnnotationLayer } from '../annotate/AnnotationLayer';
 import type { Annotation } from '../annotate/message';
 import { alignToNeighbours, errorJumps, GRID, nodeSize, resolvePositions } from '../layout';
+import { OUT_HANDLE, type BranchRow } from './nodes';
 import { edgeColor, edgeTypes, type CanvasEdge, type EdgeKind, type FlowEdgeData } from './edges';
 import { nodeTypes, type CanvasNode, type RunMark } from './nodes';
 import { NodeActionsContext, type NodeActions } from './NodeActions';
@@ -145,9 +146,32 @@ export function FlowCanvas(props: Props) {
   };
   const playback = useLivePlayback(props.live, follow);
 
+  // Rows on a card select their connection; a ref keeps the node data stable across renders.
+  const selectRef = useRef(onSelect);
+  selectRef.current = onSelect;
+  const pickEdge = useMemo(() => (id: string) => selectRef.current({ kind: 'edge', id }), []);
+
   const derived = useMemo<CanvasNode[]>(() => {
     const positions = resolvePositions(doc);
     const titles = new Map(doc.nodes.map((n) => [n.id, n.title]));
+    const types = new Map(doc.nodes.map((n) => [n.id, n.type]));
+    const centre = (id: string) => (positions[id]?.x ?? 0) + nodeSize(types.get(id) ?? 'tool').width / 2;
+    const invalid = new Set(issues.filter((i) => i.edgeId && i.severity === 'error').map((i) => i.edgeId));
+    // A branching node lists its ways out as rows, left to right as their targets sit and the default path last,
+    // each leaving towards its target.
+    const branchesOf = (id: string): BranchRow[] | undefined => {
+      const outs = doc.edges.filter((e) => e.source === id);
+      if (outs.length < 2) return undefined;
+      return outs
+        .sort((a, b) => Number(a.isDefault) - Number(b.isDefault) || centre(a.target) - centre(b.target))
+        .map((e) => ({
+          edgeId: e.id,
+          text: e.condition || (e.isDefault ? 'Otherwise' : 'Needs a condition'),
+          kind: e.condition ? 'if' : e.isDefault ? 'else' : 'missing',
+          side: centre(e.target) < centre(id) - 8 ? 'left' : 'right',
+          state: selection?.kind === 'edge' && selection.id === e.id ? 'selected' : invalid.has(e.id) ? 'invalid' : trace?.edges.has(e.id) ? 'trace' : undefined,
+        }));
+    };
     const current = doc.nodes.map((node): CanvasNode => ({
       id: node.id,
       type: node.type,
@@ -162,6 +186,8 @@ export function FlowCanvas(props: Props) {
         runMark: trace?.marks.get(node.id),
         errorTarget: node.onError?.targetNodeId ? titles.get(node.onError.targetNodeId) : undefined,
         motion: playback.entering.has(node.id) ? 'enter' : playback.flashing.has(node.id) ? 'flash' : undefined,
+        branches: branchesOf(node.id),
+        onPickEdge: readOnly ? undefined : pickEdge,
       },
     }));
     if (!playback.ghosts || !props.live) return current;
@@ -176,7 +202,7 @@ export function FlowCanvas(props: Props) {
       data: { node, tool: node.tool ? toolsByName.get(node.tool.name) : undefined, issues: [], motion: 'leave' },
     }));
     return [...current, ...ghosts];
-  }, [doc, issues, toolsByName, trace, selection, playback]);
+  }, [doc, issues, toolsByName, trace, selection, playback, readOnly, pickEdge]);
 
   // Local copy so dragging is smooth; the server copy wins whenever it changes.
   // Sizes React Flow measured carry over: a node without them is re-measured and its edges vanish for a frame.
@@ -213,10 +239,11 @@ export function FlowCanvas(props: Props) {
     for (const e of doc.edges) outDegree.set(e.source, (outDegree.get(e.source) ?? 0) + 1);
     const invalid = new Set(issues.filter((i) => i.edgeId && i.severity === 'error').map((i) => i.edgeId));
 
-    const make = (id: string, source: string, target: string, data: FlowEdgeData, selected = false): CanvasEdge => ({
+    const make = (id: string, source: string, target: string, data: FlowEdgeData, selected = false, sourceHandle = OUT_HANDLE): CanvasEdge => ({
       id,
       source,
       target,
+      sourceHandle,
       type: 'flow',
       selected,
       hidden: playback.hidden.has(id),
@@ -230,11 +257,10 @@ export function FlowCanvas(props: Props) {
 
     const flowEdges = doc.edges.map((e) => {
       const selected = selection?.kind === 'edge' && selection.id === e.id;
+      // A branch leaves from its row on the card, which also shows the condition.
       const branches = (outDegree.get(e.source) ?? 0) > 1;
-      const kind: EdgeKind = !branches ? 'plain' : e.condition ? 'branch' : e.isDefault ? 'fallback' : 'branch';
-      const label = !branches ? undefined : e.condition || (e.isDefault ? 'Otherwise' : 'Needs a condition');
       const tone = selected ? 'selected' : invalid.has(e.id) ? 'invalid' : trace?.edges.has(e.id) ? 'trace' : 'normal';
-      return make(e.id, e.source, e.target, { kind, tone, label, onInsert: readOnly ? undefined : () => props.onInsertOnEdge(e.id) }, selected);
+      return make(e.id, e.source, e.target, { kind: 'plain', tone, onInsert: readOnly ? undefined : () => props.onInsertOnEdge(e.id) }, selected, branches ? e.id : OUT_HANDLE);
     });
     const jumpEdges = errorJumps(doc.nodes).map((j) => make(`${JUMP_PREFIX}${j.source}`, j.source, j.target, { kind: 'error', tone: 'normal', label: 'On error' }));
     const ghostEdges = (playback.ghosts?.edges ?? []).map((e) => make(e.id, e.source, e.target, { kind: 'plain', tone: 'normal', motion: 'leave' }));

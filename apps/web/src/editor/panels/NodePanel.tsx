@@ -186,7 +186,7 @@ export function NodePanel({ node, doc, tools, skills, issues, onSave, onDelete }
 function PanelHeader({ node, title, tool, onCopyId }: { node: FlowNode; title: ReactNode; tool?: ToolDefinition; onCopyId: () => void }) {
   const style = stepStyle(node, tool);
   const Icon = node.type === 'start' ? Play : node.type === 'end' ? CircleCheck : style.icon;
-  const tile = node.type === 'start' ? 'bg-emerald-500 text-white ring-emerald-500' : node.type === 'end' ? 'bg-slate-100 text-slate-500 ring-slate-200' : style.tile;
+  const tile = node.type === 'start' ? 'bg-emerald-500 text-white ring-emerald-500' : node.type === 'end' ? 'bg-slate-100 text-slate-500 ring-slate-200' : `${style.solid} text-white ring-transparent`;
   return (
     <PanelHead
       icon={<Icon size={16} strokeWidth={1.75} />}
