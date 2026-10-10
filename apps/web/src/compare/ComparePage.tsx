@@ -55,6 +55,8 @@ export default function ComparePage({ graphId, from, to }: Props) {
   const viewport = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const [ready, setReady] = useState(0);
   const opened = useRef(false);
+  /** Set once the person pans or zooms: from then on the view is theirs and is not re-centred. */
+  const userMoved = useRef(false);
 
   useEffect(() => {
     const el = root.current;
@@ -72,6 +74,7 @@ export default function ComparePage({ graphId, from, to }: Props) {
     setSelected(null);
     setReady(0);
     opened.current = false;
+    userMoved.current = false;
     viewport.current = null;
     let live = true;
     Promise.all([
@@ -117,12 +120,16 @@ export default function ComparePage({ graphId, from, to }: Props) {
     return change ? { kind: 'edge', change } : null;
   }, [diff, selected]);
 
+  const bounds = useMemo(() => (data && positions ? boundsOf(positions, data.before, data.after) : null), [data, positions]);
   const sideBySide = width >= SIDE_BY_SIDE;
   const roomy = width >= ROOMY;
 
-  /** Moves both canvases to a flow point. */
+  /** The canvases on screen: both side by side, otherwise the one being shown. Others may be left over from a wider layout. */
+  const shown = () => (sideBySide ? [panes.current.before, panes.current.after] : [panes.current[side]]).filter((rf): rf is PaneInstance => !!rf);
+
+  /** Moves the canvases to a flow point. */
   const flyTo = (x: number, y: number, duration = 300) => {
-    for (const rf of Object.values(panes.current)) void rf?.setCenter(x, y, { zoom: Math.max(READABLE_ZOOM, rf.getZoom()), duration });
+    for (const rf of shown()) void rf.setCenter(x, y, { zoom: Math.max(READABLE_ZOOM, rf.getZoom()), duration });
   };
 
   /** Selects a change and brings it into view on both canvases. */
@@ -141,12 +148,24 @@ export default function ComparePage({ graphId, from, to }: Props) {
     }
   };
 
-  // Open on the first change instead of the whole flow, which at this size is too small to read.
+  const selectedNow = useRef(selected);
+  selectedNow.current = selected;
+
+  // Frame the canvases: on the first change when there is one (the whole flow is too small to read at this size),
+  // otherwise on the whole flow. This runs whenever a canvas starts or the width changes, because an embedded page is
+  // sized after it loads and a window can be resized; once the person pans or zooms, the view is theirs.
   useEffect(() => {
-    if (opened.current || !data || !keys.length || ready < (sideBySide ? 2 : 1)) return;
-    opened.current = true;
-    requestAnimationFrame(() => select(keys[0]!, 0));
-  }, [ready, data, keys, sideBySide]);
+    if (!data || !bounds || ready < (sideBySide ? 2 : 1) || userMoved.current) return;
+    const timer = setTimeout(() => {
+      if (userMoved.current) return;
+      if (!opened.current && keys.length) {
+        opened.current = true;
+        select(keys[0]!, 0);
+      } else if (selectedNow.current) select(selectedNow.current, 0);
+      else for (const rf of shown()) void rf.fitBounds(bounds, { padding: 0.06 });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [ready, width, data, bounds, sideBySide, side]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -172,7 +191,6 @@ export default function ComparePage({ graphId, from, to }: Props) {
     return <div ref={root} className="grid flex-1 place-items-center bg-slate-50 text-sm text-slate-400">Loading versions…</div>;
   }
 
-  const bounds = boundsOf(positions, data.before, data.after);
   const total = diff.nodes.length + diff.edges.length;
   const index = selected ? keys.indexOf(selected) + 1 : 0;
 
@@ -188,6 +206,7 @@ export default function ComparePage({ graphId, from, to }: Props) {
   };
 
   const sync = (origin: 'before' | 'after') => (vp: { x: number; y: number; zoom: number }) => {
+    userMoved.current = true;
     viewport.current = vp;
     void panes.current[origin === 'before' ? 'after' : 'before']?.setViewport(vp);
   };
@@ -214,7 +233,6 @@ export default function ComparePage({ graphId, from, to }: Props) {
         onInit={(rf) => {
           panes.current[which] = rf;
           if (viewport.current) void rf.setViewport(viewport.current);
-          else void rf.fitBounds(bounds, { padding: 0.06 });
           setReady((n) => n + 1);
         }}
         onMove={sync(which)}
