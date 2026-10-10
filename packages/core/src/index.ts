@@ -1,3 +1,4 @@
+export * from './diff.js';
 export * from './model.js';
 export * from './ops.js';
 export * from './refs.js';

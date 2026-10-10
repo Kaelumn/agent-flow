@@ -1,5 +1,5 @@
 import type { GraphEvent } from '@agent-flow/core';
-import { Bot, History, Rocket, RotateCcw } from 'lucide-react';
+import { Bot, GitCompareArrows, History, Rocket, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, type GraphWithIssues, type VersionSummary } from '../../api/client';
 import { Avatar, Badge, cx, Empty, IconButton, Section, useConfirm, useToast } from '../../components/ui';
@@ -25,6 +25,11 @@ export function HistoryPanel({ graph, versionSignal, onRestored }: Props) {
     api.history(graph.id).then(setHistory, fail);
   }, [graph.id, graph.revision, versionSignal]);
 
+  // The version comparison is its own page; this is its address (see compare/ComparePage).
+  const compare = (from: number, to: number | 'draft') => {
+    location.hash = `/flows/${graph.id}/compare/${from}/${to}`;
+  };
+
   const restore = async (version: number) => {
     if (!(await confirm({ title: `Restore version ${version}`, message: `Replace the current draft with version ${version}? The change history is kept.`, confirmLabel: 'Restore' }))) return;
     try {
@@ -37,7 +42,10 @@ export function HistoryPanel({ graph, versionSignal, onRestored }: Props) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <Section title="Published versions">
+      <Section
+        title="Published versions"
+        action={graph.latestVersion ? <button type="button" onClick={() => compare(graph.latestVersion!, 'draft')} className="flex items-center gap-1 text-[11.5px] font-medium text-indigo-600 hover:text-indigo-500"><GitCompareArrows size={12} />Draft vs v{graph.latestVersion}</button> : undefined}
+      >
         {versions && !versions.length && <p className="text-[12.5px] text-slate-500">Not published yet. Use Publish in the header when the flow has no errors.</p>}
         <ol className="relative space-y-1">
           {versions?.map((v, i) => (
@@ -50,7 +58,8 @@ export function HistoryPanel({ graph, versionSignal, onRestored }: Props) {
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-semibold text-slate-900">v{v.version}</span>
                   {v.version === graph.latestVersion && <Badge tone="green" dot>Live</Badge>}
-                  <IconButton label={`Restore v${v.version} into the draft`} onClick={() => restore(v.version)} className="ml-auto opacity-0 group-hover:opacity-100"><RotateCcw size={13} /></IconButton>
+                  {v.version > 1 && <IconButton label={`Compare v${v.version} with v${v.version - 1}`} onClick={() => compare(v.version - 1, v.version)} className="ml-auto opacity-0 group-hover:opacity-100"><GitCompareArrows size={13} /></IconButton>}
+                  <IconButton label={`Restore v${v.version} into the draft`} onClick={() => restore(v.version)} className={cx('opacity-0 group-hover:opacity-100', v.version === 1 && 'ml-auto')}><RotateCcw size={13} /></IconButton>
                 </div>
                 <p className="text-[12.5px] leading-snug text-slate-600">{v.note || <span className="text-slate-400">No release note</span>}</p>
                 <p className="mt-0.5 text-[11px] text-slate-400" title={fullTime(v.createdAt)}>{v.createdBy} · {timeAgo(v.createdAt)}</p>

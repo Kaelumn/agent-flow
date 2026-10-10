@@ -1,0 +1,16 @@
+/*
+ * The compare page reuses the editor's step cards as they are. A card draws a changed branch row in its "selected"
+ * look (indigo); inside a comparison nothing is selected that way, so that look is turned into the amber used for
+ * "modified" everywhere else on this page.
+ */
+.af-compare .ring-indigo-300 {
+  --tw-ring-color: #fcd34d;
+}
+.af-compare .bg-indigo-50 {
+  background-color: #fffbeb;
+}
+
+/* Cards are read-only here: no pointer cursor suggesting they can be dragged or edited. */
+.af-compare .react-flow__node {
+  cursor: default;
+}

@@ -1,5 +1,5 @@
 import type { GraphSummary } from '@agent-flow/core';
-import { useEffect, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react';
 import { api } from './api/client';
 import { subscribe } from './api/events';
 import type { Identity } from './auth';
@@ -8,7 +8,15 @@ import { embeddingHost } from './editor/annotate/message';
 import { Editor } from './editor/Editor';
 import { FlowsHome } from './FlowsHome';
 
+// The version comparison loads only when it is opened.
+const ComparePage = lazy(() => import('./compare/ComparePage'));
+
 const routeId = () => location.hash.match(/^#\/flows\/([\w-]+)/)?.[1] ?? null;
+/** #/flows/:id/compare/:from/:to, where each version is a number and `to` may be "draft". */
+const routeCompare = () => {
+  const m = location.hash.match(/^#\/flows\/([\w-]+)\/compare\/(\d+)\/(\d+|draft)/);
+  return m ? { id: m[1]!, from: Number(m[2]), to: m[3] === 'draft' ? ('draft' as const) : Number(m[3]) } : null;
+};
 const navigate = (id: string | null) => {
   location.hash = id ? `/flows/${id}` : '';
 };
@@ -18,6 +26,7 @@ export function App({ identity, signOut }: { identity: Identity; signOut: () => 
   const confirm = useConfirm();
   const [flows, setFlows] = useState<GraphSummary[] | null>(null);
   const [current, setCurrent] = useState(routeId);
+  const [compare, setCompare] = useState(routeCompare);
   const [creating, setCreating] = useState(false);
   const [hostOrigin] = useState(() => embeddingHost(identity.embedOrigins));
 
@@ -25,7 +34,10 @@ export function App({ identity, signOut }: { identity: Identity; signOut: () => 
 
   useEffect(() => {
     void reload();
-    const onHash = () => setCurrent(routeId());
+    const onHash = () => {
+      setCurrent(routeId());
+      setCompare(routeCompare());
+    };
     window.addEventListener('hashchange', onHash);
     const unsubscribe = subscribe(null, (e) => {
       if (e.type === 'graph.changed' || e.type === 'graph.archived' || e.type === 'graph.published') void reload();
@@ -44,7 +56,11 @@ export function App({ identity, signOut }: { identity: Identity; signOut: () => 
 
   return (
     <div className="flex h-full">
-      {current ? (
+      {compare ? (
+        <Suspense fallback={<div className="grid flex-1 place-items-center bg-slate-50 text-sm text-slate-400">Loading…</div>}>
+          <ComparePage key={compare.id} graphId={compare.id} from={compare.from} to={compare.to} />
+        </Suspense>
+      ) : current ? (
         <Editor key={current} graphId={current} hostOrigin={hostOrigin} onGone={() => navigate(null)} onBack={hostOrigin ? undefined : () => navigate(null)} />
       ) : (
         <FlowsHome flows={flows} identity={identity} onOpen={navigate} onCreate={() => setCreating(true)} onArchive={archive} onSignOut={signOut} />
