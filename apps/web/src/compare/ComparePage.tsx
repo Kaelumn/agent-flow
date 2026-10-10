@@ -1,22 +1,25 @@
-import { diffGraphs, marksOf, type GraphDoc, type ToolDefinition } from '@agent-flow/core';
-import { ArrowLeft, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { diffGraphs, marksOf, type GraphDiff, type GraphDoc, type ToolDefinition } from '@agent-flow/core';
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Contrast, ListTree, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, type VersionSummary } from '../api/client';
-import { Badge, Button, cx, IconButton, Segmented, Select, Tooltip, useToast } from '../components/ui';
+import { Badge, Button, cx, IconButton, Segmented, Tooltip, useToast } from '../components/ui';
 import { ChangeDetail, type Picked } from './ChangeDetail';
 import { ChangeList, edgeKey, nodeKey } from './ChangeList';
 import { ComparePane, type PaneInstance } from './ComparePane';
 import { boundsOf, sharedLayout } from './layout';
+import { VersionMenu, type VersionOption } from './VersionMenu';
 import './compare.css';
 
 export type Side = number | 'draft';
 
 /** Below this width the two canvases do not fit side by side: one canvas with a switch between the versions. */
 const SIDE_BY_SIDE = 900;
-/** The list of changes needs this much room beside the canvases. */
-const WITH_LIST = 1180;
+/** Below this the toolbar drops the words beside its icons. */
+const ROOMY = 1040;
+/** Zoom the canvases settle on when they fly to a change: large enough to read the cards. */
+const READABLE_ZOOM = 0.85;
 
-const label = (v: Side) => (v === 'draft' ? 'Draft' : `v${v}`);
+const name = (v: Side) => (v === 'draft' ? 'Draft' : `v${v}`);
 const hashFor = (id: string, from: Side, to: Side) => `/flows/${id}/compare/${from}/${to}`;
 
 interface Loaded {
@@ -44,11 +47,14 @@ export default function ComparePage({ graphId, from, to }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [onlyChanges, setOnlyChanges] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const [side, setSide] = useState<'before' | 'after'>('after');
   const root = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(1200);
   const panes = useRef<{ before?: PaneInstance; after?: PaneInstance }>({});
   const viewport = useRef<{ x: number; y: number; zoom: number } | null>(null);
+  const [ready, setReady] = useState(0);
+  const opened = useRef(false);
 
   useEffect(() => {
     const el = root.current;
@@ -64,6 +70,8 @@ export default function ComparePage({ graphId, from, to }: Props) {
     setData(null);
     setError(null);
     setSelected(null);
+    setReady(0);
+    opened.current = false;
     viewport.current = null;
     let live = true;
     Promise.all([
@@ -109,6 +117,47 @@ export default function ComparePage({ graphId, from, to }: Props) {
     return change ? { kind: 'edge', change } : null;
   }, [diff, selected]);
 
+  const sideBySide = width >= SIDE_BY_SIDE;
+  const roomy = width >= ROOMY;
+
+  /** Moves both canvases to a flow point. */
+  const flyTo = (x: number, y: number, duration = 300) => {
+    for (const rf of Object.values(panes.current)) void rf?.setCenter(x, y, { zoom: Math.max(READABLE_ZOOM, rf.getZoom()), duration });
+  };
+
+  /** Selects a change and brings it into view on both canvases. */
+  const select = (key: string | null, duration = 300) => {
+    setSelected(key);
+    if (!key || !diff || !positions) return;
+    if (key.startsWith('n:')) {
+      const at = positions[key.slice(2)];
+      if (at) flyTo(at.x + 148, at.y + 40, duration);
+    } else {
+      const change = diff.edges[Number(key.slice(2))];
+      const e = (change?.after ?? change?.before)!;
+      const a = positions[e.source];
+      const b = positions[e.target];
+      if (a && b) flyTo((a.x + b.x) / 2 + 148, (a.y + b.y) / 2 + 40, duration);
+    }
+  };
+
+  // Open on the first change instead of the whole flow, which at this size is too small to read.
+  useEffect(() => {
+    if (opened.current || !data || !keys.length || ready < (sideBySide ? 2 : 1)) return;
+    opened.current = true;
+    requestAnimationFrame(() => select(keys[0]!, 0));
+  }, [ready, data, keys, sideBySide]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (listOpen) setListOpen(false);
+      else if (selected) setSelected(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [listOpen, selected]);
+
   if (error) {
     return (
       <div className="grid flex-1 place-items-center bg-slate-50 p-6 text-center">
@@ -123,33 +172,13 @@ export default function ComparePage({ graphId, from, to }: Props) {
     return <div ref={root} className="grid flex-1 place-items-center bg-slate-50 text-sm text-slate-400">Loading versions…</div>;
   }
 
-  const sideBySide = width >= SIDE_BY_SIDE;
-  const showList = width >= WITH_LIST;
   const bounds = boundsOf(positions, data.before, data.after);
-
-  /** Moves both canvases to a flow point. */
-  const flyTo = (x: number, y: number) => {
-    for (const rf of Object.values(panes.current)) void rf?.setCenter(x, y, { zoom: Math.max(0.7, rf.getZoom()), duration: 300 });
-  };
-
-  const select = (key: string | null) => {
-    setSelected(key);
-    if (!key) return;
-    if (key.startsWith('n:')) {
-      const at = positions[key.slice(2)];
-      if (at) flyTo(at.x + 148, at.y + 40);
-    } else {
-      const change = diff.edges[Number(key.slice(2))];
-      const e = (change?.after ?? change?.before)!;
-      const a = positions[e.source];
-      const b = positions[e.target];
-      if (a && b) flyTo((a.x + b.x) / 2 + 148, (a.y + b.y) / 2 + 40);
-    }
-  };
+  const total = diff.nodes.length + diff.edges.length;
+  const index = selected ? keys.indexOf(selected) + 1 : 0;
 
   const step = (by: 1 | -1) => {
     if (!keys.length) return;
-    const at = selected ? keys.indexOf(selected) : -1;
+    const at = selected ? keys.indexOf(selected) : by === 1 ? -1 : 0;
     select(keys[(at + by + keys.length) % keys.length]!);
   };
 
@@ -158,10 +187,9 @@ export default function ComparePage({ graphId, from, to }: Props) {
     return i < 0 ? null : edgeKey(i);
   };
 
-  const sync = (from: 'before' | 'after') => (vp: { x: number; y: number; zoom: number }) => {
+  const sync = (origin: 'before' | 'after') => (vp: { x: number; y: number; zoom: number }) => {
     viewport.current = vp;
-    const other = panes.current[from === 'before' ? 'after' : 'before'];
-    void other?.setViewport(vp);
+    void panes.current[origin === 'before' ? 'after' : 'before']?.setViewport(vp);
   };
 
   const pane = (which: 'before' | 'after') => {
@@ -187,140 +215,138 @@ export default function ComparePage({ graphId, from, to }: Props) {
           panes.current[which] = rf;
           if (viewport.current) void rf.setViewport(viewport.current);
           else void rf.fitBounds(bounds, { padding: 0.06 });
+          setReady((n) => n + 1);
         }}
         onMove={sync(which)}
       />
     );
   };
 
-  const versionOptions = data.versions.map((v) => v.version);
+  const options = (withDraft: boolean): VersionOption[] => [
+    ...(withDraft ? ([{ value: 'draft', name: 'Draft' }] as VersionOption[]) : []),
+    ...data.versions.map((v) => ({ value: v.version, name: `v${v.version}`, note: v.note, createdAt: v.createdAt, live: v.version === data.latest })),
+  ];
   const canSwap = to !== 'draft';
 
   return (
-    <div ref={root} className="flex h-full min-w-0 flex-1 flex-col bg-slate-50">
-      <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => (location.hash = `/flows/${graphId}`)}><ArrowLeft size={14} />Back</Button>
-          <h1 className="max-w-[40ch] truncate text-[15px] font-semibold text-slate-900">{data.title}</h1>
-          <span className="h-4 w-px bg-slate-200" />
-          <Summary diff={diff} />
-          {diff.movedNodes > 0 && <span className="text-[11.5px] text-slate-400">{diff.movedNodes} moved, not shown</span>}
+    <div ref={root} className="flex h-full min-w-0 flex-1 flex-col bg-white">
+      <header className="relative z-20 flex h-12 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3">
+        <IconButton label="Back to the flow" onClick={() => (location.hash = `/flows/${graphId}`)}><ArrowLeft size={16} /></IconButton>
+        <h1 className={cx('truncate text-[14px] font-semibold text-slate-900', roomy ? 'max-w-[32ch]' : 'max-w-[14ch]')} title={data.title}>{data.title}</h1>
+        <Divider />
+        <VersionMenu label="Compare from" value={from} options={options(false)} onChange={(v) => (location.hash = hashFor(graphId, v, to))} />
+        {canSwap ? (
+          <IconButton label="Swap the two versions" onClick={() => (location.hash = hashFor(graphId, to as number, from))}><ArrowRight size={15} /></IconButton>
+        ) : (
+          <ArrowRight size={15} className="mx-1 text-slate-300" />
+        )}
+        <VersionMenu label="Compare to" value={to} options={options(true)} onChange={(v) => (location.hash = hashFor(graphId, from, v))} />
+        <Divider />
+        <div className="flex items-center">
+          <IconButton label="Previous change" onClick={() => step(-1)}><ChevronUp size={15} /></IconButton>
+          <span className="min-w-[44px] text-center text-[12px] text-slate-500 tabular-nums">{total ? `${index || '–'} / ${total}` : '0'}</span>
+          <IconButton label="Next change" onClick={() => step(1)}><ChevronDown size={15} /></IconButton>
         </div>
+        <Divider />
+        <Tooltip content="Dim everything that did not change, so only the changes stand out" side="bottom">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={onlyChanges}
+            onClick={() => setOnlyChanges((v) => !v)}
+            className={cx('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition-colors', onlyChanges ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100')}
+          >
+            <Contrast size={15} />
+            {roomy && 'Fade unchanged'}
+          </button>
+        </Tooltip>
 
-        <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
-          <Group label="Versions to compare">
-            <Picker label="From">
-              <Select className="!h-7 !w-auto !border-0 !bg-transparent !px-1.5 !pr-7 !text-[12.5px] !font-medium" value={String(from)} onChange={(e) => (location.hash = hashFor(graphId, Number(e.target.value), to))} aria-label="Compare from">
-                {versionOptions.map((v) => <option key={v} value={v}>v{v}</option>)}
-              </Select>
-            </Picker>
-            <IconButton label="Swap the two versions" disabled={!canSwap} onClick={() => (location.hash = hashFor(graphId, to as number, from))} className="disabled:opacity-40"><ArrowLeftRight size={14} /></IconButton>
-            <Picker label="To">
-              <Select className="!h-7 !w-auto !border-0 !bg-transparent !px-1.5 !pr-7 !text-[12.5px] !font-medium" value={String(to)} onChange={(e) => (location.hash = hashFor(graphId, from, e.target.value === 'draft' ? 'draft' : Number(e.target.value)))} aria-label="Compare to">
-                {versionOptions.map((v) => <option key={v} value={v}>v{v}</option>)}
-                <option value="draft">Draft (unpublished)</option>
-              </Select>
-            </Picker>
-          </Group>
-
-          <Group label="Jump between changes">
-            <div className="flex h-8 items-center rounded-lg border border-slate-200 bg-white px-0.5">
-              <IconButton label="Previous change" disabled={!keys.length} onClick={() => step(-1)}><ChevronUp size={15} /></IconButton>
-              <span className="min-w-[56px] text-center text-[12px] text-slate-600 tabular-nums">{keys.length ? `${selected ? keys.indexOf(selected) + 1 : '–'} of ${keys.length}` : 'None'}</span>
-              <IconButton label="Next change" disabled={!keys.length} onClick={() => step(1)}><ChevronDown size={15} /></IconButton>
+        <div className="relative ml-auto">
+          <button
+            type="button"
+            onClick={() => setListOpen((o) => !o)}
+            aria-expanded={listOpen}
+            className={cx('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition-colors', listOpen ? 'bg-slate-200/70 text-slate-900' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70')}
+          >
+            <ListTree size={15} />
+            {total ? `${total} change${total > 1 ? 's' : ''}` : 'No changes'}
+          </button>
+          {listOpen && (
+            <div className="absolute top-full right-0 z-30 mt-1.5 flex max-h-[min(70vh,520px)] w-80 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+              <div className="flex shrink-0 items-center gap-1.5 border-b border-slate-100 px-3 py-2">
+                <Summary diff={diff} />
+                <IconButton label="Close the list" onClick={() => setListOpen(false)} className="ml-auto"><X size={14} /></IconButton>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <ChangeList diff={diff} title={title} selected={selected} onPick={(k) => select(k)} />
+              </div>
+              {diff.movedNodes > 0 && <p className="shrink-0 border-t border-slate-100 px-3 py-2 text-[11.5px] text-slate-400">{diff.movedNodes} step{diff.movedNodes > 1 ? 's' : ''} only moved, not listed.</p>}
             </div>
-          </Group>
-
-          <Group label="View">
-            <Tooltip content="Dim everything that did not change, so only the changes stand out">
-              <button type="button" role="switch" aria-checked={onlyChanges} onClick={() => setOnlyChanges((v) => !v)} className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white pr-3 pl-2 text-[12.5px] text-slate-700 hover:border-slate-300">
-                <span className={cx('flex h-4 w-7 items-center rounded-full p-0.5 transition-colors', onlyChanges ? 'bg-indigo-600' : 'bg-slate-300')}>
-                  <span className={cx('size-3 rounded-full bg-white shadow-sm transition-transform', onlyChanges && 'translate-x-3')} />
-                </span>
-                Fade unchanged steps
-              </button>
-            </Tooltip>
-          </Group>
+          )}
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          {!sideBySide && (
-            <div className="shrink-0 px-4 pt-2.5">
-              <Segmented value={side} onChange={setSide} options={[{ value: 'before', label: label(from) }, { value: 'after', label: label(to) }]} />
-            </div>
-          )}
-          <div className="relative flex min-h-0 flex-1 gap-2 p-2">
-            {sideBySide ? (
-              <>
-                <Frame title={label(from)} live={from === data.latest}>{pane('before')}</Frame>
-                <Frame title={label(to)} live={to === data.latest} draft={to === 'draft'}>{pane('after')}</Frame>
-              </>
-            ) : (
-              <Frame title={side === 'before' ? label(from) : label(to)} live={(side === 'before' ? from : to) === data.latest}>{pane(side)}</Frame>
-            )}
+      <main className="relative min-h-0 flex-1 bg-slate-50">
+        {!sideBySide && (
+          <div className="absolute top-3 left-1/2 z-10 w-56 -translate-x-1/2 rounded-lg bg-white shadow-sm ring-1 ring-slate-200">
+            <Segmented value={side} onChange={setSide} options={[{ value: 'before', label: name(from) }, { value: 'after', label: name(to) }]} />
           </div>
-          <div className="max-h-[40%] min-h-[88px] shrink-0 overflow-y-auto border-t border-slate-200 bg-white">
-            <ChangeDetail picked={picked} title={title} beforeLabel={label(from)} afterLabel={label(to)} />
-          </div>
-        </div>
-        {showList && (
-          <aside className="w-72 shrink-0 border-l border-slate-200 bg-white">
-            <ChangeList diff={diff} title={title} selected={selected} onPick={select} />
-          </aside>
         )}
-      </div>
-      <p className="sr-only">Both versions are drawn on one shared layout, so positions here are not the ones saved in the flow.</p>
+        <div className="grid h-full" style={{ gridTemplateColumns: sideBySide ? '1fr 1fr' : '1fr' }}>
+          {sideBySide ? (
+            <>
+              <Half tag={name(from)} live={from === data.latest}>{pane('before')}</Half>
+              <Half tag={name(to)} live={to === data.latest} draft={to === 'draft'} divider>{pane('after')}</Half>
+            </>
+          ) : (
+            <Half tag={name(side === 'before' ? from : to)} live={(side === 'before' ? from : to) === data.latest} hideTag>{pane(side)}</Half>
+          )}
+        </div>
+
+        {picked && (
+          <div className="absolute bottom-4 left-1/2 z-10 max-h-[46%] w-[min(680px,calc(100%-32px))] -translate-x-1/2 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+            <ChangeDetail picked={picked} title={title} beforeLabel={name(from)} afterLabel={name(to)} onClose={() => setSelected(null)} />
+          </div>
+        )}
+        {!total && (
+          <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-[12.5px] text-slate-500 shadow-sm">
+            These two versions are the same flow{diff.movedNodes ? `, apart from ${diff.movedNodes} moved step${diff.movedNodes > 1 ? 's' : ''}` : ''}.
+          </div>
+        )}
+      </main>
     </div>
   );
 }
 
-/** A labelled cluster of controls in the header, so what each one is for is stated, not guessed. */
-function Group({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <div className="mb-1 text-[11px] font-medium text-slate-400">{label}</div>
-      <div className="flex items-center gap-1.5">{children}</div>
-    </div>
-  );
-}
+const Divider = () => <span className="mx-1 h-5 w-px shrink-0 bg-slate-200" />;
 
-/** A version choice with its role written beside it. */
-function Picker({ label, children }: { label: string; children: ReactNode }) {
+/** One version's canvas. The two halves share one surface and are told apart by a thin line and a small tag. */
+function Half({ tag, live, draft, divider, hideTag, children }: { tag: string; live?: boolean; draft?: boolean; divider?: boolean; hideTag?: boolean; children: ReactNode }) {
   return (
-    <div className="flex h-8 items-center rounded-lg border border-slate-200 bg-white pl-2.5 hover:border-slate-300">
-      <span className="text-[11.5px] text-slate-400">{label}</span>
-      {children}
-    </div>
-  );
-}
-
-function Frame({ title, live, draft, children }: { title: string; live?: boolean; draft?: boolean; children: ReactNode }) {
-  return (
-    <section className="relative min-w-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-      <div className="pointer-events-none absolute top-2.5 left-3 z-10 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/95 py-0.5 pr-2.5 pl-2.5 text-[12px] font-semibold text-slate-800 shadow-sm">
-        {title}
-        {live && <Badge tone="green" dot>Live</Badge>}
-        {draft && <Badge tone="amber">unpublished</Badge>}
-      </div>
+    <section className={cx('relative min-w-0 overflow-hidden', divider && 'border-l border-slate-300')}>
+      {!hideTag && (
+        <div className="pointer-events-none absolute top-3 left-3 z-10 flex items-center gap-1.5 rounded-full bg-white/95 py-0.5 pr-2.5 pl-2.5 text-[12px] font-medium text-slate-800 ring-1 ring-slate-200">
+          {tag}
+          {live && <Badge tone="green" dot>Live</Badge>}
+          {draft && <span className="text-[11px] font-normal text-amber-700">unpublished</span>}
+        </div>
+      )}
       {children}
     </section>
   );
 }
 
-function Summary({ diff }: { diff: NonNullable<ReturnType<typeof diffGraphs>> }) {
-  const n = (list: { kind: string }[], kind: string) => list.filter((c) => c.kind === kind).length;
-  const chip = (count: number, text: string, className: string) => count > 0 && <span key={text} className={cx('rounded-full px-2 py-0.5 text-[11.5px] font-medium', className)}>{count} {text}</span>;
+function Summary({ diff }: { diff: GraphDiff }) {
+  const count = (list: { kind: string }[], kind: string) => list.filter((c) => c.kind === kind).length;
+  const chip = (n: number, text: string, className: string) => n > 0 && <span key={text} className={cx('rounded-full px-2 py-0.5 text-[11.5px] font-medium', className)}>{n} {text}</span>;
   const steps = diff.nodes;
-  const links = diff.edges;
   return (
     <>
-      {chip(n(steps, 'added'), 'added', 'bg-emerald-100 text-emerald-800')}
-      {chip(n(steps, 'removed'), 'removed', 'bg-red-100 text-red-800')}
-      {chip(n(steps, 'changed'), 'modified', 'bg-amber-100 text-amber-900')}
-      {links.length > 0 && <span className="text-[11.5px] text-slate-500">{links.length} connection{links.length > 1 ? 's' : ''} changed</span>}
-      {steps.length + links.length === 0 && <span className="text-[12px] text-slate-500">No differences</span>}
+      {chip(count(steps, 'added'), 'added', 'bg-emerald-100 text-emerald-800')}
+      {chip(count(steps, 'removed'), 'removed', 'bg-red-100 text-red-800')}
+      {chip(count(steps, 'changed'), 'modified', 'bg-amber-100 text-amber-900')}
+      {diff.edges.length > 0 && <span className="text-[11.5px] text-slate-500">{diff.edges.length} connection{diff.edges.length > 1 ? 's' : ''}</span>}
+      {steps.length + diff.edges.length === 0 && <span className="text-[12px] text-slate-500">No differences</span>}
     </>
   );
 }

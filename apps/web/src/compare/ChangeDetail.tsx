@@ -1,5 +1,6 @@
 import { EDGE_FIELDS, NODE_FIELDS, type EdgeChange, type EdgeField, type FieldChange, type NodeChange, type NodeField } from '@agent-flow/core';
-import { cx } from '../components/ui';
+import { X } from 'lucide-react';
+import { cx, IconButton } from '../components/ui';
 import { EDGE_FIELD_LABEL, NODE_FIELD_LABEL, showValue } from './format';
 import { wordDiff, type Piece } from './textDiff';
 
@@ -43,13 +44,12 @@ interface Props {
   title: (id: string) => string;
   beforeLabel: string;
   afterLabel: string;
+  onClose: () => void;
 }
 
 /** What exactly changed in the selected step or connection: each field, before and after. */
-export function ChangeDetail({ picked, title, beforeLabel, afterLabel }: Props) {
-  if (!picked) {
-    return <div className="px-4 py-3 text-[12.5px] text-slate-400">Select a marked step or connection, or pick one from the list, to see what changed.</div>;
-  }
+export function ChangeDetail({ picked, title, beforeLabel, afterLabel, onClose }: Props) {
+  if (!picked) return null;
 
   const { change } = picked;
   const kind = KIND[change.kind];
@@ -95,6 +95,7 @@ export function ChangeDetail({ picked, title, beforeLabel, afterLabel }: Props) 
         <span className={cx('shrink-0 rounded-full px-2 py-px text-[10.5px] font-semibold', kind.className)}>{kind.text}</span>
         {picked.kind === 'edge' && <span className="shrink-0 text-[11.5px] text-slate-400">connection</span>}
         {heading}
+        <IconButton label="Close" onClick={onClose} className="ml-auto"><X size={14} /></IconButton>
       </div>
       <div className="grid grid-cols-[110px_minmax(0,1fr)_minmax(0,1fr)] gap-3 pb-1 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
         <span />
