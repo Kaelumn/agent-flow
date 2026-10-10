@@ -11,12 +11,19 @@ interface Props {
   onRestored: (graph: GraphWithIssues) => void;
 }
 
+/** How many lines of an entry show before "N more". */
+const LINES_SHOWN = 3;
+
+/** The ids the server adds after names are for agents: `added tool node "Check" (n_x1)` reads better without them. */
+const readable = (line: string) => line.replace(/"\s\([\w-]+\)/g, '"');
+
 /** Published versions and the change history of the draft. Publishing itself lives in the header. */
 export function HistoryPanel({ graph, versionSignal, onRestored }: Props) {
   const { fail, notify } = useToast();
   const confirm = useConfirm();
   const [versions, setVersions] = useState<VersionSummary[] | null>(null);
   const [history, setHistory] = useState<GraphEvent[] | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     api.versions(graph.id).then(setVersions, fail);
@@ -71,27 +78,38 @@ export function HistoryPanel({ graph, versionSignal, onRestored }: Props) {
 
       <Section title="Changes to the draft">
         {history && !history.length && <Empty icon={<History size={18} />} title="No changes yet" />}
-        <ol className="space-y-4">
-          {history?.map((e) => (
-            <li key={e.id} className="flex gap-3">
-              {e.source === 'mcp' ? (
-                <span title="Changed by an agent" className="grid size-7 shrink-0 place-items-center rounded-full bg-indigo-100 text-indigo-600"><Bot size={14} /></span>
-              ) : (
-                <Avatar name={e.actor} />
-              )}
-              <div className="min-w-0 flex-1">
+        <ol className="-mt-1 divide-y divide-slate-100">
+          {history?.map((e) => {
+            const open = expanded.has(e.id);
+            const lines = e.summary.map(readable);
+            const shown = open ? lines : lines.slice(0, LINES_SHOWN);
+            return (
+              <li key={e.id} className="py-2 first:pt-0">
                 <div className="flex items-center gap-1.5 text-[12px]">
+                  {e.source === 'mcp' ? (
+                    <span title="Changed by an agent" className="grid size-5 shrink-0 place-items-center rounded-full bg-indigo-100 text-indigo-600"><Bot size={11} /></span>
+                  ) : (
+                    <Avatar name={e.actor} className="!size-5 !text-[9px]" />
+                  )}
                   <span className="font-semibold text-slate-800">{e.actor}</span>
                   {e.source === 'mcp' && <Badge tone="indigo">agent</Badge>}
                   <span className="ml-auto shrink-0 text-[11px] text-slate-400 tabular-nums" title={fullTime(e.createdAt)}>rev {e.revision} · {timeAgo(e.createdAt)}</span>
                 </div>
-                <ul className="mt-1 space-y-0.5">
-                  {e.summary.slice(0, 6).map((line, i) => <li key={i} className="text-[12.5px] leading-snug break-words text-slate-600">{line}</li>)}
-                  {e.summary.length > 6 && <li className="text-[11.5px] text-slate-400">and {e.summary.length - 6} more change{e.summary.length - 6 > 1 ? 's' : ''}</li>}
+                <ul className="mt-0.5 space-y-px pl-[26px]">
+                  {shown.map((line, i) => <li key={i} className="text-[12px] leading-[17px] break-words text-slate-600">{line}</li>)}
                 </ul>
-              </div>
-            </li>
-          ))}
+                {lines.length > LINES_SHOWN && (
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((set) => { const next = new Set(set); if (!next.delete(e.id)) next.add(e.id); return next; })}
+                    className="mt-0.5 pl-[26px] text-[11.5px] font-medium text-indigo-600 hover:text-indigo-500"
+                  >
+                    {open ? 'Show less' : `${lines.length - LINES_SHOWN} more`}
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ol>
       </Section>
     </div>
