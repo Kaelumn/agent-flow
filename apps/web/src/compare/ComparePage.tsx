@@ -2,7 +2,7 @@ import { diffGraphs, marksOf, type GraphDoc, type ToolDefinition } from '@agent-
 import { ArrowLeft, ArrowLeftRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, type VersionSummary } from '../api/client';
-import { Badge, Button, cx, Segmented, Select, useToast } from '../components/ui';
+import { Badge, Button, cx, IconButton, Segmented, Select, Tooltip, useToast } from '../components/ui';
 import { ChangeDetail, type Picked } from './ChangeDetail';
 import { ChangeList, edgeKey, nodeKey } from './ChangeList';
 import { ComparePane, type PaneInstance } from './ComparePane';
@@ -198,32 +198,49 @@ export default function ComparePage({ graphId, from, to }: Props) {
 
   return (
     <div ref={root} className="flex h-full min-w-0 flex-1 flex-col bg-slate-50">
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-4 py-2.5">
-        <Button variant="ghost" size="sm" onClick={() => (location.hash = `/flows/${graphId}`)}><ArrowLeft size={14} />Back</Button>
-        <h1 className="max-w-[28ch] truncate text-[14px] font-semibold text-slate-900">{data.title}</h1>
-        <div className="flex items-center gap-1.5">
-          <Select className="!h-8 !w-auto" value={String(from)} onChange={(e) => (location.hash = hashFor(graphId, Number(e.target.value), to))} aria-label="Compare from">
-            {versionOptions.map((v) => <option key={v} value={v}>v{v}</option>)}
-          </Select>
-          <Button variant="ghost" size="sm" disabled={!canSwap} onClick={() => (location.hash = hashFor(graphId, to as number, from))} aria-label="Swap the two versions"><ArrowLeftRight size={14} /></Button>
-          <Select className="!h-8 !w-auto" value={String(to)} onChange={(e) => (location.hash = hashFor(graphId, from, e.target.value === 'draft' ? 'draft' : Number(e.target.value)))} aria-label="Compare to">
-            {versionOptions.map((v) => <option key={v} value={v}>v{v}</option>)}
-            <option value="draft">Draft</option>
-          </Select>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+      <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => (location.hash = `/flows/${graphId}`)}><ArrowLeft size={14} />Back</Button>
+          <h1 className="max-w-[40ch] truncate text-[15px] font-semibold text-slate-900">{data.title}</h1>
+          <span className="h-4 w-px bg-slate-200" />
           <Summary diff={diff} />
           {diff.movedNodes > 0 && <span className="text-[11.5px] text-slate-400">{diff.movedNodes} moved, not shown</span>}
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-slate-600 select-none">
-            <input type="checkbox" checked={onlyChanges} onChange={(e) => setOnlyChanges(e.target.checked)} className="size-3.5 accent-indigo-600" />
-            Fade the rest
-          </label>
-          <div className="flex items-center">
-            <Button variant="secondary" size="sm" onClick={() => step(-1)} disabled={!keys.length} aria-label="Previous change"><ChevronUp size={14} /></Button>
-            <Button variant="secondary" size="sm" className="ml-1" onClick={() => step(1)} disabled={!keys.length} aria-label="Next change"><ChevronDown size={14} /></Button>
-          </div>
+
+        <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
+          <Group label="Versions to compare">
+            <Picker label="From">
+              <Select className="!h-7 !w-auto !border-0 !bg-transparent !px-1.5 !pr-7 !text-[12.5px] !font-medium" value={String(from)} onChange={(e) => (location.hash = hashFor(graphId, Number(e.target.value), to))} aria-label="Compare from">
+                {versionOptions.map((v) => <option key={v} value={v}>v{v}</option>)}
+              </Select>
+            </Picker>
+            <IconButton label="Swap the two versions" disabled={!canSwap} onClick={() => (location.hash = hashFor(graphId, to as number, from))} className="disabled:opacity-40"><ArrowLeftRight size={14} /></IconButton>
+            <Picker label="To">
+              <Select className="!h-7 !w-auto !border-0 !bg-transparent !px-1.5 !pr-7 !text-[12.5px] !font-medium" value={String(to)} onChange={(e) => (location.hash = hashFor(graphId, from, e.target.value === 'draft' ? 'draft' : Number(e.target.value)))} aria-label="Compare to">
+                {versionOptions.map((v) => <option key={v} value={v}>v{v}</option>)}
+                <option value="draft">Draft (unpublished)</option>
+              </Select>
+            </Picker>
+          </Group>
+
+          <Group label="Jump between changes">
+            <div className="flex h-8 items-center rounded-lg border border-slate-200 bg-white px-0.5">
+              <IconButton label="Previous change" disabled={!keys.length} onClick={() => step(-1)}><ChevronUp size={15} /></IconButton>
+              <span className="min-w-[56px] text-center text-[12px] text-slate-600 tabular-nums">{keys.length ? `${selected ? keys.indexOf(selected) + 1 : '–'} of ${keys.length}` : 'None'}</span>
+              <IconButton label="Next change" disabled={!keys.length} onClick={() => step(1)}><ChevronDown size={15} /></IconButton>
+            </div>
+          </Group>
+
+          <Group label="View">
+            <Tooltip content="Dim everything that did not change, so only the changes stand out">
+              <button type="button" role="switch" aria-checked={onlyChanges} onClick={() => setOnlyChanges((v) => !v)} className="flex h-8 items-center gap-2 rounded-lg border border-slate-200 bg-white pr-3 pl-2 text-[12.5px] text-slate-700 hover:border-slate-300">
+                <span className={cx('flex h-4 w-7 items-center rounded-full p-0.5 transition-colors', onlyChanges ? 'bg-indigo-600' : 'bg-slate-300')}>
+                  <span className={cx('size-3 rounded-full bg-white shadow-sm transition-transform', onlyChanges && 'translate-x-3')} />
+                </span>
+                Fade unchanged steps
+              </button>
+            </Tooltip>
+          </Group>
         </div>
       </header>
 
@@ -255,6 +272,26 @@ export default function ComparePage({ graphId, from, to }: Props) {
         )}
       </div>
       <p className="sr-only">Both versions are drawn on one shared layout, so positions here are not the ones saved in the flow.</p>
+    </div>
+  );
+}
+
+/** A labelled cluster of controls in the header, so what each one is for is stated, not guessed. */
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] font-medium text-slate-400">{label}</div>
+      <div className="flex items-center gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+/** A version choice with its role written beside it. */
+function Picker({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex h-8 items-center rounded-lg border border-slate-200 bg-white pl-2.5 hover:border-slate-300">
+      <span className="text-[11.5px] text-slate-400">{label}</span>
+      {children}
     </div>
   );
 }
